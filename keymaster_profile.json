@@ -1,0 +1,327 @@
+{
+  "xp": 181,
+  "level": 7,
+  "total_challenges_completed": 68,
+  "perfect_challenges": 35,
+  "best_survival_score": 0,
+  "fastest_wpm": 62,
+  "total_keystrokes": 1660,
+  "total_errors": 150,
+  "total_time_played": 0,
+  "completed_concepts": [
+    "classes",
+    "imports",
+    "handling",
+    "loops",
+    "debug",
+    "random",
+    "functions",
+    "params",
+    "lambda",
+    "docs",
+    "sets",
+    "json",
+    "main",
+    "output",
+    "comprehensions",
+    "collections",
+    "operations",
+    "assertions",
+    "comments",
+    "dicts",
+    "conditionals",
+    "lists"
+  ],
+  "current_learning_path": "basics",
+  "mastered_paths": [
+    "best_practices"
+  ],
+  "daily_completed": [],
+  "daily_streak": 0,
+  "last_daily_date": "",
+  "powerups": {
+    "hint": 0,
+    "skip": 0,
+    "slow_time": 1
+  },
+  "highest_combo": 0,
+  "achievements": {
+    "achievements": {
+      "speed_1": {
+        "id": "speed_1",
+        "name": "Velocity Rookie",
+        "description": "Alcanza 30 WPM",
+        "icon": "⚡",
+        "requirement": 30,
+        "unlocked": true,
+        "unlock_date": "2026-01-05 13:22:24",
+        "category": "speed"
+      },
+      "speed_2": {
+        "id": "speed_2",
+        "name": "Code Runner",
+        "description": "Alcanza 50 WPM",
+        "icon": "🚀",
+        "requirement": 50,
+        "unlocked": true,
+        "unlock_date": "2026-01-05 13:22:24",
+        "category": "speed"
+      },
+      "speed_3": {
+        "id": "speed_3",
+        "name": "Terminal Velocity",
+        "description": "Alcanza 80 WPM",
+        "icon": "💨",
+        "requirement": 80,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "speed"
+      },
+      "speed_4": {
+        "id": "speed_4",
+        "name": "Keyboard Ninja",
+        "description": "Alcanza 100 WPM",
+        "icon": "🥷",
+        "requirement": 100,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "speed"
+      },
+      "level_5": {
+        "id": "level_5",
+        "name": "Scripter",
+        "description": "Alcanza nivel 5",
+        "icon": "📜",
+        "requirement": 5,
+        "unlocked": true,
+        "unlock_date": "2026-01-05 13:22:24",
+        "category": "level"
+      },
+      "level_10": {
+        "id": "level_10",
+        "name": "Developer",
+        "description": "Alcanza nivel 10",
+        "icon": "💻",
+        "requirement": 10,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "level"
+      },
+      "level_20": {
+        "id": "level_20",
+        "name": "Senior Dev",
+        "description": "Alcanza nivel 20",
+        "icon": "🎯",
+        "requirement": 20,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "level"
+      },
+      "level_50": {
+        "id": "level_50",
+        "name": "Tech Lead",
+        "description": "Alcanza nivel 50",
+        "icon": "👑",
+        "requirement": 50,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "level"
+      },
+      "accuracy_1": {
+        "id": "accuracy_1",
+        "name": "Precise Coder",
+        "description": "Completa 10 desafíos perfectos",
+        "icon": "🎯",
+        "requirement": 10,
+        "unlocked": true,
+        "unlock_date": "2026-01-05 13:22:24",
+        "category": "accuracy"
+      },
+      "accuracy_2": {
+        "id": "accuracy_2",
+        "name": "Zero Tolerance",
+        "description": "Completa 50 desafíos perfectos",
+        "icon": "✨",
+        "requirement": 50,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "accuracy"
+      },
+      "accuracy_3": {
+        "id": "accuracy_3",
+        "name": "Flawless Execution",
+        "description": "Completa 100 desafíos perfectos",
+        "icon": "💎",
+        "requirement": 100,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "accuracy"
+      },
+      "survival_1": {
+        "id": "survival_1",
+        "name": "Survivor",
+        "description": "Sobrevive a 10 desafíos en modo Survival",
+        "icon": "🛡️",
+        "requirement": 10,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "survival"
+      },
+      "survival_2": {
+        "id": "survival_2",
+        "name": "Unbreakable",
+        "description": "Sobrevive a 50 desafíos en modo Survival",
+        "icon": "💪",
+        "requirement": 50,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "survival"
+      },
+      "survival_3": {
+        "id": "survival_3",
+        "name": "Immortal",
+        "description": "Alcanza score 500 en Survival",
+        "icon": "👹",
+        "requirement": 500,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "survival"
+      },
+      "combo_1": {
+        "id": "combo_1",
+        "name": "Combo Starter",
+        "description": "Alcanza combo x10",
+        "icon": "🔥",
+        "requirement": 10,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "combo"
+      },
+      "combo_2": {
+        "id": "combo_2",
+        "name": "Combo Master",
+        "description": "Alcanza combo x25",
+        "icon": "⚡",
+        "requirement": 25,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "combo"
+      },
+      "combo_3": {
+        "id": "combo_3",
+        "name": "Unstoppable",
+        "description": "Alcanza combo x50",
+        "icon": "💥",
+        "requirement": 50,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "combo"
+      },
+      "practice_1": {
+        "id": "practice_1",
+        "name": "Dedicated",
+        "description": "Completa 100 desafíos totales",
+        "icon": "📚",
+        "requirement": 100,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "practice"
+      },
+      "practice_2": {
+        "id": "practice_2",
+        "name": "Persistent",
+        "description": "Completa 500 desafíos totales",
+        "icon": "🏆",
+        "requirement": 500,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "practice"
+      },
+      "practice_3": {
+        "id": "practice_3",
+        "name": "Grandmaster",
+        "description": "Completa 1000 desafíos totales",
+        "icon": "🌟",
+        "requirement": 1000,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "practice"
+      },
+      "python_basics": {
+        "id": "python_basics",
+        "name": "Python Basics",
+        "description": "Domina conceptos básicos",
+        "icon": "🐍",
+        "requirement": 1,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "mastery"
+      },
+      "python_oop": {
+        "id": "python_oop",
+        "name": "OOP Master",
+        "description": "Domina POO en Python",
+        "icon": "🏗️",
+        "requirement": 1,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "mastery"
+      },
+      "python_data": {
+        "id": "python_data",
+        "name": "Data Wizard",
+        "description": "Domina estructuras de datos",
+        "icon": "📊",
+        "requirement": 1,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "mastery"
+      },
+      "python_advanced": {
+        "id": "python_advanced",
+        "name": "Pythonista",
+        "description": "Domina conceptos avanzados",
+        "icon": "🧙",
+        "requirement": 1,
+        "unlocked": false,
+        "unlock_date": "",
+        "category": "mastery"
+      }
+    },
+    "stats": {
+      "total_challenges": 68,
+      "perfect_challenges": 35,
+      "total_keystrokes": 1660,
+      "errors_made": 150,
+      "fastest_wpm": 62,
+      "total_xp_earned": 2281,
+      "survival_runs": 0,
+      "highest_combo": 0,
+      "time_played_seconds": 0,
+      "python_concepts_mastered": [
+        "classes",
+        "imports",
+        "handling",
+        "loops",
+        "debug",
+        "random",
+        "functions",
+        "params",
+        "lambda",
+        "docs",
+        "sets",
+        "json",
+        "main",
+        "output",
+        "comprehensions",
+        "collections",
+        "operations",
+        "assertions",
+        "comments",
+        "dicts",
+        "conditionals",
+        "lists"
+      ]
+    }
+  }
+}
