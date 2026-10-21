@@ -1,0 +1,24 @@
+{
+  "xp": 0,
+  "level": 1,
+  "total_challenges_completed": 0,
+  "perfect_challenges": 0,
+  "best_survival_score": 0,
+  "fastest_wpm": 0,
+  "total_keystrokes": 0,
+  "total_errors": 0,
+  "total_time_played": 0,
+  "completed_concepts": [],
+  "current_learning_path": "basics",
+  "mastered_paths": [],
+  "daily_completed": [],
+  "daily_streak": 0,
+  "last_daily_date": "",
+  "powerups": {
+    "hint": 3,
+    "skip": 2,
+    "slow_time": 1
+  },
+  "highest_combo": 0,
+  "achievements": {}
+}
