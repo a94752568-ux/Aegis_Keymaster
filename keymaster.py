@@ -2,6 +2,7 @@
 KeyMaster Pro - Python Mastery
 Modos: Entrenamiento, Aprendizaje, Constructor, Supervivencia, Diario
 Soporta huecos (____), explicaciones y constructor multilinea.
+IA local opcional via Ollama (switch en la UI).
 """
 import customtkinter as ctk
 import time
@@ -10,6 +11,11 @@ from profile_manager import PlayerProfile
 from content_generator import ContentGenerator
 from tips_system import TipsSystem
 from constructor_mode import ConstructorMixin
+
+try:
+    from ollama_tutor import get_tutor
+except Exception:
+    get_tutor = None
 
 try:
     from splash_screen import show_splash
@@ -52,6 +58,13 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
         self._builder_used_scaffold = False
         self._builder_used_reveal = False
         self._builder_used_solution = False
+        self.use_ai = False
+        self.tutor = None
+        if get_tutor:
+            try:
+                self.tutor = get_tutor(force_refresh=True)
+            except Exception:
+                self.tutor = None
 
         self._build_ui()
         self._set_mode("TRAINING")
@@ -78,6 +91,17 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
         )
         self.mode_panel.set("ENTRENAMIENTO")
         self.mode_panel.pack(side="top", pady=4)
+
+        ai_row = ctk.CTkFrame(header, fg_color="transparent")
+        ai_row.pack(side="top", pady=(2, 0))
+        self.ai_switch = ctk.CTkSwitch(
+            ai_row, text="IA local (Ollama)", command=self._toggle_ai,
+            font=("Roboto", 11),
+        )
+        self.ai_switch.pack(side="left", padx=4)
+        self.lbl_ai = ctk.CTkLabel(ai_row, text="Ollama offline", font=("Roboto", 11), text_color="#666")
+        self.lbl_ai.pack(side="left", padx=6)
+        self._refresh_ai_status()
 
         right = ctk.CTkFrame(header, fg_color="transparent")
         right.pack(side="right")
@@ -168,6 +192,11 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
             command=self._show_solution, fg_color="#E85D4C", hover_color="#C94A3B",
         )
         self.btn_solution.pack(side="left", padx=4)
+        self.btn_ai_hint = ctk.CTkButton(
+            self.builder_btns, text="Tutor IA", width=100, height=32,
+            command=self._ai_builder_hint, fg_color="#0D9488", hover_color="#0F766E",
+        )
+        self.btn_ai_hint.pack(side="left", padx=4)
         self.btn_next_ex = ctk.CTkButton(
             self.builder_btns, text="Siguiente", width=100, height=32,
             command=self._new_code_builder_exercise, fg_color="#555", hover_color="#444",
@@ -423,6 +452,43 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
                 self.after(200, self._new_code_builder_exercise)
             else:
                 self.after(200, self._new_challenge)
+
+    def _refresh_ai_status(self):
+        if not get_tutor:
+            self.lbl_ai.configure(text="Modulo ollama no cargado", text_color="#666")
+            return
+        try:
+            if self.tutor is None:
+                self.tutor = get_tutor(force_refresh=True)
+            else:
+                self.tutor.refresh()
+            if self.tutor.is_available():
+                self.lbl_ai.configure(text=self.tutor.status_text(), text_color="#2CC985")
+            else:
+                self.lbl_ai.configure(text="Ollama offline · ollama serve", text_color="#666")
+        except Exception:
+            self.lbl_ai.configure(text="Ollama offline", text_color="#666")
+
+    def _toggle_ai(self):
+        self.use_ai = bool(self.ai_switch.get())
+        self._refresh_ai_status()
+        if self.use_ai:
+            if not self.tutor or not self.tutor.is_available():
+                self.use_ai = False
+                self.ai_switch.deselect()
+                self.lbl_feedback.configure(
+                    text="Ollama no responde. Instala ollama.com y ejecuta: ollama pull llama3.2",
+                    text_color="#FFB84D",
+                )
+                return
+            self.content.set_ai(True, self.tutor)
+            self.lbl_feedback.configure(
+                text=f"IA activa · {self.tutor.status_text()}. Genera ejercicios y feedback guiado.",
+                text_color="#2CC985",
+            )
+        else:
+            self.content.set_ai(False, self.tutor)
+            self.lbl_feedback.configure(text="IA desactivada · banco fijo de ejercicios", text_color="gray")
 
 
 if __name__ == "__main__":
