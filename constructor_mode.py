@@ -84,6 +84,7 @@ class ConstructorMixin:
             self.lbl_tip.pack_forget()
 
         self.code_textbox.delete("1.0", "end")
+        self._clear_diff_tags()
         self.code_textbox.configure(border_color="#00A8B8")
         n_lines = len(exercise["code"].split("\n"))
         self.lbl_feedback.configure(
@@ -102,6 +103,7 @@ class ConstructorMixin:
             return
         self._builder_used_scaffold = True
         self.code_textbox.delete("1.0", "end")
+        self._clear_diff_tags()
         self.code_textbox.insert("1.0", scaffold)
         self.code_textbox.configure(border_color="#00E5FF")
         self.lbl_feedback.configure(
@@ -122,6 +124,7 @@ class ConstructorMixin:
         self._builder_revealed += 1
         partial = "\n".join(revealed)
         self.code_textbox.delete("1.0", "end")
+        self._clear_diff_tags()
         self.code_textbox.insert("1.0", partial)
         self.code_textbox.configure(border_color="#A855F7")
         left = len(target_lines) - self._builder_revealed
@@ -142,6 +145,7 @@ class ConstructorMixin:
         self._builder_used_reveal = True
         self._builder_revealed = len(code.split("\n"))
         self.code_textbox.delete("1.0", "end")
+        self._clear_diff_tags()
         self.code_textbox.insert("1.0", code)
         self.code_textbox.configure(border_color="#FF3355")
         goals = self._builder_exercise.get("goals") or []
@@ -154,6 +158,94 @@ class ConstructorMixin:
         except Exception:
             pass
         self.code_textbox.focus()
+
+    def _get_textbox_widget(self):
+        """Underlying tk Text for tag support."""
+        tb = self.code_textbox
+        return getattr(tb, "_textbox", tb)
+
+    def _setup_diff_tags(self):
+        try:
+            tb = self._get_textbox_widget()
+            tb.tag_configure("diff_ok", background="#0A1F14", foreground="#39FF14")
+            tb.tag_configure("diff_bad", background="#2A0A12", foreground="#FF6B7A")
+            tb.tag_configure("diff_extra", background="#1A1208", foreground="#FFB020")
+            tb.tag_raise("sel")
+        except Exception:
+            pass
+
+    def _clear_diff_tags(self):
+        try:
+            tb = self._get_textbox_widget()
+            for tag in ("diff_ok", "diff_bad", "diff_extra"):
+                tb.tag_remove(tag, "1.0", "end")
+        except Exception:
+            pass
+
+    def _apply_line_diff(self, user_code: str, target_code: str) -> str:
+        """Highlight lines in the editor; return a short summary string."""
+        self._setup_diff_tags()
+        self._clear_diff_tags()
+        t_lines = self._normalize_code(target_code).split("\n")
+        tb = self._get_textbox_widget()
+
+        raw = self.code_textbox.get("1.0", "end-1c")
+        raw_lines = raw.replace("\r\n", "\n").split("\n")
+        n_u = [ln.rstrip().replace("\t", "    ") for ln in raw_lines]
+        while n_u and n_u[-1] == "":
+            n_u.pop()
+        n_t = t_lines
+
+        ok = bad = extra = missing = 0
+        first_bad = None
+        max_check = max(len(n_u), len(n_t))
+        for i in range(max_check):
+            line_no = i + 1
+            start = f"{line_no}.0"
+            end = f"{line_no}.end"
+            u = n_u[i] if i < len(n_u) else None
+            t = n_t[i] if i < len(n_t) else None
+            try:
+                if u is not None and t is not None:
+                    if u == t:
+                        tb.tag_add("diff_ok", start, end)
+                        ok += 1
+                    else:
+                        tb.tag_add("diff_bad", start, end)
+                        bad += 1
+                        if first_bad is None:
+                            first_bad = line_no
+                elif u is not None and t is None:
+                    tb.tag_add("diff_extra", start, end)
+                    extra += 1
+                    if first_bad is None:
+                        first_bad = line_no
+                elif u is None and t is not None:
+                    missing += 1
+                    if first_bad is None:
+                        first_bad = line_no
+            except Exception:
+                pass
+
+        if first_bad is not None:
+            try:
+                tb.see(f"{first_bad}.0")
+                tb.mark_set("insert", f"{first_bad}.0")
+            except Exception:
+                pass
+
+        parts = []
+        if bad:
+            parts.append(f"{bad} distinta(s)")
+        if missing:
+            parts.append(f"{missing} faltante(s)")
+        if extra:
+            parts.append(f"{extra} de mas")
+        summary = "Diff: " + ", ".join(parts) if parts else "Diff: revisa el codigo"
+        if first_bad:
+            summary += f" · linea {first_bad}"
+        summary += "  |  verde=ok  rojo=error  ambar=extra"
+        return summary
 
     def _normalize_code(self, s: str) -> str:
         lines = [ln.rstrip() for ln in s.replace("\r\n", "\n").replace("\t", "    ").split("\n")]
@@ -176,6 +268,15 @@ class ConstructorMixin:
             self.code_textbox.configure(border_color="#FF3355")
             msg = f"Error de sintaxis (linea {e.lineno}): {e.msg}"
             self.lbl_feedback.configure(text=msg, text_color="#FF3355")
+            try:
+                self._setup_diff_tags()
+                self._clear_diff_tags()
+                ln = e.lineno or 1
+                tb = self._get_textbox_widget()
+                tb.tag_add("diff_bad", f"{ln}.0", f"{ln}.end")
+                tb.see(f"{ln}.0")
+            except Exception:
+                pass
             try:
                 self.audio.play_error()
             except Exception:
@@ -207,7 +308,11 @@ class ConstructorMixin:
             problems.append(f"Hay {len(u_lines) - len(t_lines)} linea(s) de mas al final")
 
         self.code_textbox.configure(border_color="#FF3355")
+        diff_summary = self._apply_line_diff(user_code, target_code)
         msg = problems[0] if problems else "No coincide. Revisa indentacion y sintaxis."
+        self.lbl_feedback.configure(
+            text=msg + "\n" + diff_summary, text_color="#FF3355"
+        )
         ai_note = ""
         try:
             if getattr(self, "use_ai", False) and getattr(self, "tutor", None):
@@ -226,7 +331,6 @@ class ConstructorMixin:
                     ai_note = guided
         except Exception:
             ai_note = ""
-        self.lbl_feedback.configure(text=msg, text_color="#FF3355")
         try:
             concept = ""
             if getattr(self, "_builder_exercise", None):
@@ -238,6 +342,21 @@ class ConstructorMixin:
         if ai_note:
             self.lbl_hint.configure(text=f"🤖 Tutor: {ai_note}")
             self.lbl_hint.pack(pady=(0, 8))
+        else:
+            try:
+                u_n = self._normalize_code(user_code).split("\n")
+                t_n = self._normalize_code(target_code).split("\n")
+                for i, tline in enumerate(t_n):
+                    uline = u_n[i] if i < len(u_n) else None
+                    if uline != tline:
+                        exp = tline if len(tline) <= 60 else tline[:57] + "..."
+                        self.lbl_hint.configure(
+                            text=f"◈ Linea {i+1} esperada (referencia): {exp}"
+                        )
+                        self.lbl_hint.pack(pady=(0, 8))
+                        break
+            except Exception:
+                pass
         try:
             self.audio.play_error()
         except Exception:
@@ -246,6 +365,13 @@ class ConstructorMixin:
     def _on_code_builder_success(self):
         try:
             self.audio.play_levelup()
+        except Exception:
+            pass
+        self._clear_diff_tags()
+        try:
+            self._setup_diff_tags()
+            tb = self._get_textbox_widget()
+            tb.tag_add("diff_ok", "1.0", "end")
         except Exception:
             pass
         self.code_textbox.configure(border_color="#39FF14")
