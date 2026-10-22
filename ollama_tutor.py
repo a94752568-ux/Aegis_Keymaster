@@ -17,7 +17,6 @@ from typing import Any, Dict, List, Optional
 
 
 DEFAULT_HOST = "http://127.0.0.1:11434"
-# Prefer small/fast models first; user can override
 PREFERRED_MODELS = (
     "llama3.2",
     "llama3.2:3b",
@@ -46,7 +45,6 @@ class OllamaTutor:
         self._available: Optional[bool] = None
         self._models: List[str] = []
 
-    # ── connectivity ──────────────────────────────────────────────
     def refresh(self) -> bool:
         try:
             data = self._get("/api/tags")
@@ -86,7 +84,26 @@ class OllamaTutor:
             return "Ollama offline"
         return f"Ollama · {self.model or '?'}"
 
-    # ── HTTP helpers ──────────────────────────────────────────────
+    def set_model(self, name: str) -> bool:
+        """Select an installed model by name (exact or prefix)."""
+        if not name:
+            return False
+        if self._available is None:
+            self.refresh()
+        models = self.list_models()
+        if not models:
+            return False
+        lower = {m.lower(): m for m in models}
+        key = name.lower().strip()
+        if key in lower:
+            self.model = lower[key]
+            return True
+        for mname, orig in lower.items():
+            if mname.startswith(key) or key in mname:
+                self.model = orig
+                return True
+        return False
+
     def _get(self, path: str) -> dict:
         req = urllib.request.Request(self.host + path, method="GET")
         with urllib.request.urlopen(req, timeout=min(5.0, self.timeout)) as resp:
@@ -133,7 +150,6 @@ class OllamaTutor:
                     return None
         return None
 
-    # ── generators ────────────────────────────────────────────────
     SYSTEM_CHALLENGE = (
         "Eres un tutor de Python para principiantes e intermedios. "
         "Responde SOLO JSON valido, sin markdown. "
@@ -145,18 +161,25 @@ class OllamaTutor:
         path: str = "basics",
         difficulty: int = 2,
         prefer_blank: bool = False,
+        focus_concepts: Optional[List[str]] = None,
     ) -> Optional[Dict[str, Any]]:
-        """Return a dict compatible with Challenge fields, or None."""
         kind = (
             "blank (solo la palabra/expresion que falta en answer, prompt con ____)"
             if prefer_blank
             else "full (codigo completo en answer)"
         )
+        focus = ""
+        if focus_concepts:
+            focus = (
+                "El alumno necesita reforzar estos conceptos: "
+                + ", ".join(focus_concepts[:5])
+                + ". Prioriza practicar uno de ellos.\n"
+            )
         prompt = f"""Genera UN desafio de tecleo/practica de Python.
 Ruta: {path}
 Dificultad 1-10: {difficulty}
 Tipo: {kind}
-
+{focus}
 JSON exacto:
 {{
   "answer": "codigo o fragmento correcto a teclear",
@@ -200,11 +223,15 @@ Reglas: answer debe ser valido; sin imports raros; sin comentarios; ASCII prefer
         self,
         category: str = "basic_functions",
         difficulty: int = 3,
+        focus_concepts: Optional[List[str]] = None,
     ) -> Optional[Dict[str, Any]]:
+        focus = ""
+        if focus_concepts:
+            focus = "Refuerza: " + ", ".join(focus_concepts[:4]) + ".\n"
         prompt = f"""Genera UN ejercicio de code-builder (escribir un bloque completo).
 Categoria: {category}
 Dificultad 1-10: {difficulty}
-
+{focus}
 JSON exacto:
 {{
   "title": "titulo corto",
