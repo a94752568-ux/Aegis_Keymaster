@@ -29,7 +29,7 @@ class ConstructorMixin:
             difficulty=diff, category=self.current_code_category
         )
         if not exercise:
-            self.lbl_feedback.configure(text="Sin ejercicios en esta categoria", text_color="#C92C2C")
+            self.lbl_feedback.configure(text="Sin ejercicios en esta categoria", text_color="#FF3355")
             return
 
         self._builder_exercise = exercise
@@ -84,11 +84,11 @@ class ConstructorMixin:
             self.lbl_tip.pack_forget()
 
         self.code_textbox.delete("1.0", "end")
-        self.code_textbox.configure(border_color="#565b5e")
+        self.code_textbox.configure(border_color="#00A8B8")
         n_lines = len(exercise["code"].split("\n"))
         self.lbl_feedback.configure(
             text=f"Escribe el codigo ({n_lines} lineas). Scaffold / Revelar / Ver solucion / Tutor IA si necesitas ayuda. Ctrl+Enter verifica.",
-            text_color="gray",
+            text_color="#6B7C93",
         )
         self.lbl_hint.pack_forget()
         self.code_textbox.focus()
@@ -98,15 +98,15 @@ class ConstructorMixin:
             return
         scaffold = self._builder_exercise.get("scaffold") or ""
         if not scaffold.strip():
-            self.lbl_feedback.configure(text="Este ejercicio no tiene scaffold", text_color="#FFB84D")
+            self.lbl_feedback.configure(text="Este ejercicio no tiene scaffold", text_color="#FFB020")
             return
         self._builder_used_scaffold = True
         self.code_textbox.delete("1.0", "end")
         self.code_textbox.insert("1.0", scaffold)
-        self.code_textbox.configure(border_color="#3B8ED0")
+        self.code_textbox.configure(border_color="#00E5FF")
         self.lbl_feedback.configure(
             text="Scaffold cargado. Completa los pass / comentarios.",
-            text_color="#3B8ED0",
+            text_color="#00E5FF",
         )
         self.code_textbox.focus()
 
@@ -115,7 +115,7 @@ class ConstructorMixin:
             return
         target_lines = self._builder_exercise["code"].split("\n")
         if self._builder_revealed >= len(target_lines):
-            self.lbl_feedback.configure(text="Ya se revelaron todas las lineas", text_color="#FFB84D")
+            self.lbl_feedback.configure(text="Ya se revelaron todas las lineas", text_color="#FFB020")
             return
         self._builder_used_reveal = True
         revealed = target_lines[: self._builder_revealed + 1]
@@ -123,11 +123,11 @@ class ConstructorMixin:
         partial = "\n".join(revealed)
         self.code_textbox.delete("1.0", "end")
         self.code_textbox.insert("1.0", partial)
-        self.code_textbox.configure(border_color="#8B5CF6")
+        self.code_textbox.configure(border_color="#A855F7")
         left = len(target_lines) - self._builder_revealed
         self.lbl_feedback.configure(
             text=f"Linea {self._builder_revealed}/{len(target_lines)} revelada. Quedan {left}.",
-            text_color="#8B5CF6",
+            text_color="#A855F7",
         )
         self.code_textbox.focus()
 
@@ -136,19 +136,19 @@ class ConstructorMixin:
             return
         code = self._builder_exercise.get("code") or ""
         if not code.strip():
-            self.lbl_feedback.configure(text="No hay solucion disponible", text_color="#C92C2C")
+            self.lbl_feedback.configure(text="No hay solucion disponible", text_color="#FF3355")
             return
         self._builder_used_solution = True
         self._builder_used_reveal = True
         self._builder_revealed = len(code.split("\n"))
         self.code_textbox.delete("1.0", "end")
         self.code_textbox.insert("1.0", code)
-        self.code_textbox.configure(border_color="#E85D4C")
+        self.code_textbox.configure(border_color="#FF3355")
         goals = self._builder_exercise.get("goals") or []
         note = "Solucion completa. Estudiá y escribe de nuevo (Siguiente) para practicar."
         if goals:
             note += " Objetivos: " + " · ".join(goals)
-        self.lbl_feedback.configure(text=note, text_color="#E85D4C")
+        self.lbl_feedback.configure(text=note, text_color="#FF3355")
         try:
             self.audio.play_powerup()
         except Exception:
@@ -173,9 +173,9 @@ class ConstructorMixin:
         try:
             ast.parse(user_code)
         except SyntaxError as e:
-            self.code_textbox.configure(border_color="#C92C2C")
+            self.code_textbox.configure(border_color="#FF3355")
             msg = f"Error de sintaxis (linea {e.lineno}): {e.msg}"
-            self.lbl_feedback.configure(text=msg, text_color="#C92C2C")
+            self.lbl_feedback.configure(text=msg, text_color="#FF3355")
             try:
                 self.audio.play_error()
             except Exception:
@@ -206,7 +206,7 @@ class ConstructorMixin:
         if not problems and len(u_lines) > len(t_lines):
             problems.append(f"Hay {len(u_lines) - len(t_lines)} linea(s) de mas al final")
 
-        self.code_textbox.configure(border_color="#C92C2C")
+        self.code_textbox.configure(border_color="#FF3355")
         msg = problems[0] if problems else "No coincide. Revisa indentacion y sintaxis."
         ai_note = ""
         try:
@@ -226,7 +226,7 @@ class ConstructorMixin:
                     ai_note = guided
         except Exception:
             ai_note = ""
-        self.lbl_feedback.configure(text=msg, text_color="#C92C2C")
+        self.lbl_feedback.configure(text=msg, text_color="#FF3355")
         try:
             concept = ""
             if getattr(self, "_builder_exercise", None):
@@ -248,7 +248,7 @@ class ConstructorMixin:
             self.audio.play_levelup()
         except Exception:
             pass
-        self.code_textbox.configure(border_color="#2CC985")
+        self.code_textbox.configure(border_color="#39FF14")
         base = 30 + self.current_challenge.difficulty * 10
         if getattr(self, "_builder_used_solution", False):
             base = max(5, base // 4)
@@ -276,7 +276,7 @@ class ConstructorMixin:
             bonus_note = " (usaste scaffold)"
         self.lbl_feedback.configure(
             text=f"Codigo correcto! +{base} XP{bonus_note}",
-            text_color="#2CC985",
+            text_color="#39FF14",
         )
         if exp:
             self.lbl_hint.configure(text=f"📖 {exp}")
@@ -290,10 +290,10 @@ class ConstructorMixin:
         if self.mode != "CODE_BUILDER" or not getattr(self, "_builder_exercise", None):
             return
         if not getattr(self, "use_ai", False) or not getattr(self, "tutor", None):
-            self.lbl_feedback.configure(text="Activa IA local (Ollama) para pistas del tutor", text_color="#FFB84D")
+            self.lbl_feedback.configure(text="Activa IA local (Ollama) para pistas del tutor", text_color="#FFB020")
             return
         try:
-            self.lbl_feedback.configure(text="Consultando tutor local…", text_color="#888")
+            self.lbl_feedback.configure(text="Consultando tutor local…", text_color="#6B7C93")
             self.update_idletasks()
             partial = self.code_textbox.get("1.0", "end-1c")
             hint = self.tutor.guided_hint(
@@ -304,8 +304,8 @@ class ConstructorMixin:
             if hint:
                 self.lbl_hint.configure(text=f"🤖 {hint}")
                 self.lbl_hint.pack(pady=(0, 8))
-                self.lbl_feedback.configure(text="Pista del tutor lista", text_color="#4ECDC4")
+                self.lbl_feedback.configure(text="Pista del tutor lista", text_color="#00E5FF")
             else:
-                self.lbl_feedback.configure(text="El tutor no respondio; prueba Scaffold o Revelar linea", text_color="#FFB84D")
+                self.lbl_feedback.configure(text="El tutor no respondio; prueba Scaffold o Revelar linea", text_color="#FFB020")
         except Exception as e:
-            self.lbl_feedback.configure(text=f"Tutor no disponible: {e}", text_color="#C92C2C")
+            self.lbl_feedback.configure(text=f"Tutor no disponible: {e}", text_color="#FF3355")
