@@ -82,6 +82,7 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
         self._builder_used_solution = False
         self.use_ai = False
         self.tutor = None
+        self._stats_win = None
         if get_tutor:
             try:
                 self.tutor = get_tutor(force_refresh=True)
@@ -182,6 +183,10 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
             fg_color=THEME["surface2"], hover_color=THEME["cyan_dim"], border_width=1,
             border_color=THEME["cyan"], text_color=THEME["text"], corner_radius=6)
         self.btn_skip.pack(side="left", padx=2)
+        self.btn_stats = ctk.CTkButton(pw, text="Stats", width=70, height=28, command=self._show_stats,
+            fg_color=THEME["surface2"], hover_color=THEME["magenta_dim"], border_width=1,
+            border_color=THEME["magenta"], text_color=THEME["text"], corner_radius=6)
+        self.btn_stats.pack(side="left", padx=2)
 
         self.area = ctk.CTkScrollableFrame(self, fg_color="transparent",
             scrollbar_button_color=THEME["cyan_dim"], scrollbar_button_hover_color=THEME["cyan"])
@@ -639,6 +644,183 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
         else:
             self.content.set_ai(False, self.tutor)
             self.lbl_feedback.configure(text="IA desactivada · banco fijo de ejercicios", text_color=THEME["muted"])
+
+    def _concept_mastery_rows(self, limit: int = 12):
+        """Return list of concept mastery rows sorted by struggle."""
+        rows = []
+        stats = getattr(self.player, "concept_stats", {}) or {}
+        for concept, st in stats.items():
+            attempts = max(1, int(st.get("attempts", 0) or 0))
+            successes = int(st.get("successes", 0) or 0)
+            fails = int(st.get("fails", 0) or 0)
+            errors = int(st.get("errors", 0) or 0)
+            success_rate = successes / attempts
+            fail_rate = fails / attempts
+            mastery = max(0.0, min(1.0, success_rate * (1.0 - 0.5 * fail_rate)))
+            struggle = fail_rate * 2.0 + (errors / attempts) * 0.5
+            if successes == 0 and attempts >= 1:
+                struggle += 0.4
+            rows.append({
+                "concept": concept,
+                "mastery": mastery,
+                "struggle": struggle,
+                "attempts": attempts,
+                "successes": successes,
+                "fails": fails,
+                "errors": errors,
+            })
+        rows.sort(key=lambda r: (-r["struggle"], -r["attempts"]))
+        return rows[:limit]
+
+    def _show_stats(self):
+        """Orbital telemetry panel: profile + concept heatmap."""
+        if getattr(self, "_stats_win", None) is not None:
+            try:
+                if self._stats_win.winfo_exists():
+                    self._stats_win.lift()
+                    self._stats_win.focus()
+                    return
+            except Exception:
+                pass
+
+        win = ctk.CTkToplevel(self)
+        self._stats_win = win
+        win.title("KeyMaster // TELEMETRIA")
+        win.geometry("520x640")
+        win.configure(fg_color=THEME["bg"])
+        try:
+            win.transient(self)
+        except Exception:
+            pass
+
+        ctk.CTkLabel(
+            win, text="◈ TELEMETRIA ORBITAL",
+            font=("Segoe UI", 18, "bold"), text_color=THEME["cyan"],
+        ).pack(pady=(16, 4))
+
+        try:
+            summary = self.player.get_stats_summary()
+        except Exception:
+            summary = {
+                "level": self.player.level,
+                "xp": self.player.xp,
+                "rank": getattr(self.player, "rank", "?"),
+                "accuracy": getattr(self.player, "accuracy", 100),
+                "challenges": self.player.total_challenges_completed,
+                "perfect": self.player.perfect_challenges,
+                "best_wpm": self.player.fastest_wpm,
+                "survival": self.player.best_survival_score,
+                "streak": self.player.daily_streak,
+                "concepts": len(self.player.completed_concepts),
+                "weak": self.player.get_weak_concepts(3),
+            }
+
+        card = ctk.CTkFrame(win, fg_color=THEME["panel"], corner_radius=12,
+                           border_width=1, border_color=THEME["cyan_dim"])
+        card.pack(fill="x", padx=16, pady=8)
+
+        grid = ctk.CTkFrame(card, fg_color="transparent")
+        grid.pack(fill="x", padx=12, pady=12)
+
+        def cell(parent, title, value, color):
+            f = ctk.CTkFrame(parent, fg_color=THEME["surface"], corner_radius=8)
+            f.pack(side="left", expand=True, fill="x", padx=4)
+            ctk.CTkLabel(f, text=title, font=("Segoe UI", 10), text_color=THEME["muted"]).pack(pady=(6, 0))
+            ctk.CTkLabel(f, text=str(value), font=("Segoe UI", 16, "bold"), text_color=color).pack(pady=(0, 6))
+
+        row1 = ctk.CTkFrame(grid, fg_color="transparent")
+        row1.pack(fill="x", pady=2)
+        cell(row1, "NIVEL", summary.get("level", 1), THEME["cyan"])
+        cell(row1, "XP", summary.get("xp", 0), THEME["lime"])
+        cell(row1, "RANGO", summary.get("rank", "?"), THEME["magenta"])
+
+        row2 = ctk.CTkFrame(grid, fg_color="transparent")
+        row2.pack(fill="x", pady=2)
+        acc = summary.get("accuracy", 100)
+        try:
+            acc_s = f"{float(acc):.0f}%"
+        except Exception:
+            acc_s = str(acc)
+        cell(row2, "PRECISION", acc_s, THEME["cyan"])
+        cell(row2, "WPM MAX", summary.get("best_wpm", 0), THEME["amber"])
+        cell(row2, "PERFECTOS", summary.get("perfect", 0), THEME["lime"])
+
+        row3 = ctk.CTkFrame(grid, fg_color="transparent")
+        row3.pack(fill="x", pady=2)
+        cell(row3, "RETOS", summary.get("challenges", 0), THEME["text"])
+        cell(row3, "SURVIVAL", summary.get("survival", 0), THEME["red"])
+        cell(row3, "RACHA", summary.get("streak", 0), THEME["amber"])
+
+        ctk.CTkLabel(
+            win, text="MAPA DE CONCEPTOS  ·  rojo = debil  ·  verde = fuerte",
+            font=("Segoe UI", 12), text_color=THEME["muted"],
+        ).pack(pady=(12, 4))
+
+        scroll = ctk.CTkScrollableFrame(
+            win, fg_color=THEME["surface"], corner_radius=10,
+            scrollbar_button_color=THEME["cyan_dim"],
+            scrollbar_button_hover_color=THEME["cyan"],
+        )
+        scroll.pack(fill="both", expand=True, padx=16, pady=(0, 8))
+
+        rows = self._concept_mastery_rows(limit=16)
+        if not rows:
+            ctk.CTkLabel(
+                scroll,
+                text="// Sin datos aun.\nPractica retos para alimentar el mapa adaptativo.",
+                font=("Segoe UI", 13), text_color=THEME["ghost"], justify="center",
+            ).pack(pady=40)
+        else:
+            for r in rows:
+                mastery = r["mastery"]
+                if mastery >= 0.75:
+                    bar_color = THEME["lime"]
+                elif mastery >= 0.45:
+                    bar_color = THEME["cyan"]
+                elif mastery >= 0.25:
+                    bar_color = THEME["amber"]
+                else:
+                    bar_color = THEME["red"]
+
+                row = ctk.CTkFrame(scroll, fg_color="transparent")
+                row.pack(fill="x", pady=4, padx=4)
+
+                label = f"{r['concept']}  ·  {r['successes']}/{r['attempts']} ok  ·  {r['fails']} fail"
+                ctk.CTkLabel(
+                    row, text=label, font=("Segoe UI", 11),
+                    text_color=THEME["text"], anchor="w",
+                ).pack(fill="x")
+
+                bar = ctk.CTkProgressBar(
+                    row, height=8, progress_color=bar_color,
+                    fg_color=THEME["surface2"], corner_radius=4,
+                )
+                bar.pack(fill="x", pady=(2, 0))
+                bar.set(max(0.05, mastery))
+
+        weak = []
+        try:
+            weak = self.player.get_weak_concepts(5)
+        except Exception:
+            weak = summary.get("weak") or []
+        focus = ctk.CTkFrame(win, fg_color=THEME["panel"], corner_radius=10,
+                             border_width=1, border_color=THEME["magenta_dim"])
+        focus.pack(fill="x", padx=16, pady=(4, 12))
+        ctk.CTkLabel(
+            focus, text="FOCO ADAPTATIVO",
+            font=("Segoe UI", 11, "bold"), text_color=THEME["magenta"],
+        ).pack(anchor="w", padx=12, pady=(8, 2))
+        focus_txt = ", ".join(weak) if weak else "Ninguno critico — sigue practicando"
+        ctk.CTkLabel(
+            focus, text=focus_txt, font=("Segoe UI", 12),
+            text_color=THEME["text"], wraplength=460, justify="left",
+        ).pack(anchor="w", padx=12, pady=(0, 10))
+
+        ctk.CTkButton(
+            win, text="Cerrar", width=120, height=32, command=win.destroy,
+            fg_color=THEME["surface2"], hover_color=THEME["panel"],
+            border_width=1, border_color=THEME["border"], text_color=THEME["text"],
+        ).pack(pady=(0, 16))
 
 
 if __name__ == "__main__":
