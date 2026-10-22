@@ -22,6 +22,28 @@ class ContentGenerator:
         self.code_builder_exercises = self._init_code_builder_exercises()
         self.daily_challenges = []
         self._generate_daily_challenges()
+        self.use_ai = False
+        self._tutor = None
+        self._ai_ratio = 0.55  # probability of AI challenge when enabled
+
+    def set_ai(self, enabled: bool, tutor=None):
+        self.use_ai = bool(enabled)
+        if tutor is not None:
+            self._tutor = tutor
+
+    def _tutor_ok(self):
+        if not self.use_ai:
+            return False
+        if self._tutor is None:
+            try:
+                from ollama_tutor import get_tutor
+                self._tutor = get_tutor()
+            except Exception:
+                return False
+        try:
+            return self._tutor.is_available()
+        except Exception:
+            return False
 
     def _init_learning_paths(self) -> Dict[str, List[Challenge]]:
         return {
@@ -50,29 +72,60 @@ class ContentGenerator:
                 Challenge("get", 3, "data_structures", "dicts", "Acceso seguro", "blank", "name = user.____('name')", "dict.get evita KeyError."),
             ],
             "control_flow": [
-                Challenge("if x > 0:", 2, "control_flow", "conditionals", "if"),
-                Challenge("for i in range(10):", 3, "control_flow", "loops", "for range"),
-                Challenge("while count < 10:", 3, "control_flow", "loops", "while"),
-                Challenge("range", 3, "control_flow", "loops", "range", "blank", "for i in ____(10):", "range(10) produce 0..9 (fin exclusivo)."),
-                Challenge(":", 2, "control_flow", "conditionals", "dos puntos", "blank", "if x > 0____", "Tras if/for/def va ':' y el bloque indentado."),
+                Challenge("if x > 0:\n    print('positive')", 3, "control_flow", "conditionals", "if"),
+                Challenge("for i in range(5):\n    print(i)", 3, "control_flow", "loops", "for range"),
+                Challenge("range", 3, "control_flow", "loops", "Rango", "blank", "for i in ____(5):\n    print(i)", "range(n) produce 0..n-1."),
             ],
             "functions": [
-                Challenge("def hello():", 3, "functions", "basic", "def"),
-                Challenge("def add(a, b):\n    return a + b", 4, "functions", "basic", "return"),
-                Challenge("lambda x: x * 2", 5, "functions", "lambda", "lambda"),
-                Challenge("def", 3, "functions", "basic", "definir", "blank", "____ greet(name):", "Las funciones se definen con def."),
-                Challenge("return", 4, "functions", "basic", "devolver", "blank", "def add(a, b):\n    ____ a + b", "Sin return la funcion devuelve None."),
+                Challenge("def greet(name):\n    return f'Hi {name}'", 3, "functions", "basic", "def return"),
+                Challenge("return", 3, "functions", "basic", "Devolver", "blank", "def add(a, b):\n    ____ a + b", "return sale de la funcion con un valor."),
             ],
-            "oop": [Challenge("class Person:", 4, "oop", "classes", "class")],
-            "modules": [Challenge("import math", 3, "modules", "imports", "import")],
-            "file_io": [Challenge("with open('file.txt') as f:", 5, "file_io", "reading", "with open")],
-            "exceptions": [Challenge("try:", 4, "exceptions", "handling", "try")],
-            "advanced": [Challenge("@decorator", 6, "advanced", "decorators", "decorator")],
-            "stdlib": [Challenge("import json", 3, "stdlib", "json", "json")],
-            "best_practices": [Challenge("assert x > 0, 'msg'", 5, "best_practices", "assertions", "assert")],
+            "oop": [
+                Challenge("class Dog:\n    def __init__(self, name):\n        self.name = name", 5, "oop", "classes", "Clase basica"),
+            ],
+            "modules": [
+                Challenge("import math\nprint(math.sqrt(16))", 4, "modules", "import", "import"),
+            ],
+            "file_io": [
+                Challenge("with open('f.txt') as f:\n    data = f.read()", 5, "file_io", "file_io", "with open"),
+            ],
+            "exceptions": [
+                Challenge("try:\n    x = 1 / 0\nexcept ZeroDivisionError:\n    x = 0", 5, "exceptions", "exceptions", "try except"),
+            ],
+            "advanced": [
+                Challenge("[x*x for x in range(5)]", 6, "advanced", "comprehensions", "list comp"),
+            ],
+            "stdlib": [
+                Challenge("from collections import Counter", 5, "stdlib", "collections", "Counter"),
+            ],
+            "best_practices": [
+                Challenge("if not items:\n    return", 4, "best_practices", "style", "early return"),
+            ],
         }
 
     def get_challenge(self, difficulty: int, path: str = None, prefer_blank: bool = False) -> Challenge:
+        # Optional dynamic challenge via Ollama
+        if self._tutor_ok() and random.random() < self._ai_ratio:
+            try:
+                data = self._tutor.generate_challenge(
+                    path=path or "basics",
+                    difficulty=difficulty,
+                    prefer_blank=prefer_blank,
+                )
+                if data:
+                    return Challenge(
+                        text=data["text"],
+                        difficulty=data.get("difficulty", difficulty),
+                        category=data.get("category", path or "ai"),
+                        concept=data.get("concept", "ai"),
+                        hint=data.get("hint", ""),
+                        challenge_type=data.get("challenge_type", "full"),
+                        prompt=data.get("prompt", ""),
+                        explanation=data.get("explanation", ""),
+                    )
+            except Exception:
+                pass
+
         def _pick(candidates):
             if not candidates:
                 return None
@@ -136,6 +189,16 @@ class ContentGenerator:
             return {"basic_functions": [{"title": "Suma", "difficulty": 2, "code": "def sumar(a, b):\n    return a + b", "scaffold": "def sumar(a, b):\n    pass", "description": "Suma dos numeros", "goals": ["return a + b"], "concept": "functions"}]}
 
     def get_code_builder_exercise(self, difficulty: int = None, category: str = None):
+        if self._tutor_ok() and random.random() < self._ai_ratio:
+            try:
+                data = self._tutor.generate_builder_exercise(
+                    category=category or "basic_functions",
+                    difficulty=difficulty or 3,
+                )
+                if data:
+                    return data
+            except Exception:
+                pass
         if category and category in self.code_builder_exercises:
             exercises = self.code_builder_exercises[category]
             if difficulty:
