@@ -83,7 +83,7 @@ class ConstructorMixin:
         self.code_textbox.configure(border_color="#565b5e")
         n_lines = len(exercise["code"].split("\n"))
         self.lbl_feedback.configure(
-            text=f"Escribe el codigo ({n_lines} lineas). Scaffold / Revelar linea / Ver solucion si necesitas ayuda. Ctrl+Enter verifica.",
+            text=f"Escribe el codigo ({n_lines} lineas). Scaffold / Revelar / Ver solucion / Tutor IA si necesitas ayuda. Ctrl+Enter verifica.",
             text_color="gray",
         )
         self.lbl_hint.pack_forget()
@@ -205,7 +205,28 @@ class ConstructorMixin:
 
         self.code_textbox.configure(border_color="#C92C2C")
         msg = problems[0] if problems else "No coincide. Revisa indentacion y sintaxis."
+        ai_note = ""
+        try:
+            if getattr(self, "use_ai", False) and getattr(self, "tutor", None):
+                desc = ""
+                concept = ""
+                if getattr(self, "_builder_exercise", None):
+                    desc = self._builder_exercise.get("description", "")
+                    concept = self._builder_exercise.get("concept", "")
+                guided = self.tutor.explain_mismatch(
+                    user_code=user_code,
+                    target_code=target_code,
+                    concept=concept,
+                    description=desc,
+                )
+                if guided:
+                    ai_note = guided
+        except Exception:
+            ai_note = ""
         self.lbl_feedback.configure(text=msg, text_color="#C92C2C")
+        if ai_note:
+            self.lbl_hint.configure(text=f"🤖 Tutor: {ai_note}")
+            self.lbl_hint.pack(pady=(0, 8))
         try:
             self.audio.play_error()
         except Exception:
@@ -253,3 +274,28 @@ class ConstructorMixin:
         need = max(1, self.player.xp_for_next_level)
         self.progress.set(min(1.0, self.player.xp / need))
         self.after(1800, self._new_code_builder_exercise)
+
+    def _ai_builder_hint(self):
+        """Request a guided hint from Ollama without revealing the full solution."""
+        if self.mode != "CODE_BUILDER" or not getattr(self, "_builder_exercise", None):
+            return
+        if not getattr(self, "use_ai", False) or not getattr(self, "tutor", None):
+            self.lbl_feedback.configure(text="Activa IA local (Ollama) para pistas del tutor", text_color="#FFB84D")
+            return
+        try:
+            self.lbl_feedback.configure(text="Consultando tutor local…", text_color="#888")
+            self.update_idletasks()
+            partial = self.code_textbox.get("1.0", "end-1c")
+            hint = self.tutor.guided_hint(
+                description=self._builder_exercise.get("description", ""),
+                concept=self._builder_exercise.get("concept", ""),
+                partial_code=partial,
+            )
+            if hint:
+                self.lbl_hint.configure(text=f"🤖 {hint}")
+                self.lbl_hint.pack(pady=(0, 8))
+                self.lbl_feedback.configure(text="Pista del tutor lista", text_color="#4ECDC4")
+            else:
+                self.lbl_feedback.configure(text="El tutor no respondio; prueba Scaffold o Revelar linea", text_color="#FFB84D")
+        except Exception as e:
+            self.lbl_feedback.configure(text=f"Tutor no disponible: {e}", text_color="#C92C2C")
