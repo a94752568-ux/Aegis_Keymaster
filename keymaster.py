@@ -2,7 +2,7 @@
 KeyMaster // ORBITAL TRAINER
 SpaceX-Cyberpunk UI · modos de tecleo, aprendizaje y constructor.
 IA local opcional via Ollama (modelo, ratio, adaptativo).
-Contratos diarios + onboarding primer arranque.
+Contratos diarios + onboarding + banner FSRS.
 """
 import customtkinter as ctk
 import time
@@ -44,6 +44,16 @@ except Exception:
         return False
     def apply_onboarding_result(player, result):
         pass
+try:
+    from fsrs_banner import FsrsBannerMixin
+except Exception:
+    class FsrsBannerMixin:
+        def _build_fsrs_banner(self, parent):
+            pass
+        def _refresh_fsrs_banner(self, force=False):
+            pass
+        def _maybe_show_fsrs_banner(self):
+            pass
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("dark-blue")
@@ -56,7 +66,7 @@ THEME = {
     "text": "#E8F1FF", "muted": "#6B7C93", "ghost": "#3A4A5C",
 }
 
-class KeyMasterApp(ContractsUIMixin, ConstructorMixin, ctk.CTk):
+class KeyMasterApp(FsrsBannerMixin, ContractsUIMixin, ConstructorMixin, ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("KeyMaster // ORBITAL TRAINER")
@@ -103,6 +113,8 @@ class KeyMasterApp(ContractsUIMixin, ConstructorMixin, ctk.CTk):
         try:
             if needs_onboarding(self.player):
                 self.after(300, self._run_onboarding)
+            else:
+                self.after(500, self._maybe_show_fsrs_banner)
         except Exception:
             pass
 
@@ -185,6 +197,7 @@ class KeyMasterApp(ContractsUIMixin, ConstructorMixin, ctk.CTk):
             self.cat_selector.set(cats[0])
             self.current_code_category = cats[0]
         self.cat_selector.pack(pady=(0, 8), padx=10)
+        self._build_fsrs_banner(self.area)
         self.lbl_diff = ctk.CTkLabel(self.area, text="", font=("Consolas", 12), text_color=THEME["ghost"])
         self.lbl_diff.pack(pady=(12, 4))
         self.lbl_concept = ctk.CTkLabel(self.area, text="", font=("Segoe UI", 11), text_color=THEME["muted"])
@@ -416,6 +429,10 @@ class KeyMasterApp(ContractsUIMixin, ConstructorMixin, ctk.CTk):
                 except Exception:
                     pass
             self._refresh_contracts_label()
+            try:
+                self._refresh_fsrs_banner()
+            except Exception:
+                pass
         except Exception:
             pass
         exp = self.content.get_explanation(concept, self.current_challenge)
@@ -588,6 +605,7 @@ class KeyMasterApp(ContractsUIMixin, ConstructorMixin, ctk.CTk):
                 except Exception:
                     pass
                 self._set_mode("LEARNING")
+                self.after(800, self._maybe_show_fsrs_banner)
 
         dlg = OnboardingDialog(self, available_paths=paths, on_done=_done)
         try:
@@ -622,6 +640,9 @@ class KeyMasterApp(ContractsUIMixin, ConstructorMixin, ctk.CTk):
         card.pack(fill="x", padx=16, pady=8)
         ctk.CTkLabel(card, text=f"LVL {summary.get('level')}  ·  XP {summary.get('xp')}  ·  {summary.get('rank')}",
                      font=("Segoe UI", 14), text_color=THEME["text"]).pack(pady=12)
+        due = summary.get("due") or []
+        if due:
+            ctk.CTkLabel(card, text=f"FSRS due: {', '.join(due[:5])}", font=("Segoe UI", 12), text_color=THEME["amber"]).pack(pady=(0, 8))
         ctk.CTkButton(win, text="Ver contratos del dia", width=200, height=32,
             command=lambda: (win.destroy(), self._show_contracts_panel()),
             fg_color=THEME["amber"], hover_color="#E09A10", text_color=THEME["bg"], font=("Segoe UI", 12, "bold")).pack(pady=8)
