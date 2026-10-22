@@ -1,8 +1,7 @@
 """
 KeyMaster // ORBITAL TRAINER
 SpaceX-Cyberpunk UI · modos de tecleo, aprendizaje y constructor.
-IA local opcional via Ollama (modelo, ratio, adaptativo).
-Contratos diarios + onboarding + banner FSRS.
+IA local · contratos · onboarding · FSRS · mini leccion (2.1).
 """
 import customtkinter as ctk
 import time
@@ -54,6 +53,11 @@ except Exception:
             pass
         def _maybe_show_fsrs_banner(self):
             pass
+try:
+    from mini_lesson import build_mini_lesson
+except Exception:
+    def build_mini_lesson(*args, **kwargs):
+        return {"title": "", "body": "", "example": "", "compact": "", "concept": ""}
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("dark-blue")
@@ -98,6 +102,7 @@ class KeyMasterApp(FsrsBannerMixin, ContractsUIMixin, ConstructorMixin, ctk.CTk)
         self.use_ai = False
         self.tutor = None
         self._stats_win = None
+        self._lesson_seen = set()
         if get_tutor:
             try:
                 self.tutor = get_tutor(force_refresh=True)
@@ -339,11 +344,69 @@ class KeyMasterApp(FsrsBannerMixin, ContractsUIMixin, ConstructorMixin, ctk.CTk)
             self.lbl_target.configure(text=display, text_color=THEME["text"])
             self.lbl_feedback.configure(text="Escribe el codigo", text_color=THEME["muted"])
         self.lbl_diff.configure(text=f"Nivel {ch.difficulty} | {ch.category}")
-        self.lbl_concept.configure(text=f"Concepto: {ch.concept}" if self.mode == "LEARNING" else "")
+        concept = getattr(ch, "concept", "") or ""
+        self.lbl_concept.configure(text=f"Concepto: {concept}" if self.mode in ("LEARNING", "TRAINING") and concept else "")
         self.lbl_hint.configure(text="")
         self.lbl_hint.pack_forget()
+        try:
+            self._show_mini_lesson(ch)
+        except Exception:
+            try:
+                self.lbl_tip.pack_forget()
+                self.lbl_desc.pack_forget()
+            except Exception:
+                pass
         self.entry_var.set("")
         self.entry.configure(border_color=THEME["cyan_dim"])
+
+    def _show_mini_lesson(self, ch):
+        if self.mode not in ("LEARNING", "TRAINING", "DAILY"):
+            self.lbl_tip.pack_forget()
+            self.lbl_desc.pack_forget()
+            return
+        concept = getattr(ch, "concept", "") or ""
+        lesson = build_mini_lesson(
+            challenge=ch,
+            concept=concept,
+            tips_system=getattr(self, "tips", None),
+            content=getattr(self, "content", None),
+        )
+        seen = getattr(self, "_lesson_seen", set())
+        first_time = concept and concept not in seen
+        if concept:
+            seen.add(concept)
+            self._lesson_seen = seen
+
+        if self.mode == "LEARNING" or first_time:
+            title = lesson.get("title") or "◈ MINI LECCION"
+            body = lesson.get("body") or ""
+            example = lesson.get("example") or ""
+            text = body
+            if example:
+                text = f"{body}\n{example}" if body else example
+            self.lbl_tip.configure(text=title, text_color=THEME["cyan"])
+            self.lbl_desc.configure(text=text, text_color=THEME["muted"])
+            try:
+                self.lbl_tip.pack(before=self.lbl_target, pady=(4, 0))
+                self.lbl_desc.pack(before=self.lbl_target, pady=(2, 6))
+            except Exception:
+                self.lbl_tip.pack(pady=(4, 0))
+                self.lbl_desc.pack(pady=(2, 6))
+            self.lbl_feedback.configure(
+                text="Lee la mini leccion · luego escribe el reto",
+                text_color=THEME["cyan"],
+            )
+        else:
+            compact = lesson.get("compact") or lesson.get("body") or ""
+            if compact:
+                self.lbl_tip.configure(text=f"💡 {compact[:140]}", text_color=THEME["amber"])
+                try:
+                    self.lbl_tip.pack(before=self.lbl_target, pady=(2, 4))
+                except Exception:
+                    self.lbl_tip.pack(pady=(2, 4))
+            else:
+                self.lbl_tip.pack_forget()
+            self.lbl_desc.pack_forget()
 
     def _on_type(self, *args):
         if self.mode == "CODE_BUILDER":
@@ -559,7 +622,7 @@ class KeyMasterApp(FsrsBannerMixin, ContractsUIMixin, ConstructorMixin, ctk.CTk)
             if not self.tutor or not self.tutor.is_available():
                 self.use_ai = False
                 self.ai_switch.deselect()
-                self.lbl_feedback.configure(text="Ollama no responde. Instala ollama.com y: ollama pull llama3.2", text_color=THEME["amber"])
+                self.lbl_feedback.configure(text="Ollama no responde", text_color=THEME["amber"])
                 return
             self.content.set_ai(True, self.tutor)
             self.content.set_ai_ratio(float(self.ratio_slider.get()) / 100.0)
