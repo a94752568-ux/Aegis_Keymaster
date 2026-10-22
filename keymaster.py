@@ -1,7 +1,6 @@
 """
-KeyMaster Pro - Python Mastery
-Modos: Entrenamiento, Aprendizaje, Constructor, Supervivencia, Diario
-Soporta huecos (____), explicaciones y constructor multilinea.
+KeyMaster // ORBITAL TRAINER
+SpaceX-Cyberpunk UI · modos de tecleo, aprendizaje y constructor.
 IA local opcional via Ollama (modelo, ratio, adaptativo).
 """
 import customtkinter as ctk
@@ -25,12 +24,35 @@ except Exception:
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("dark-blue")
 
+# ── SpaceX / Cyberpunk visual system ─────────────────────────────
+THEME = {
+    "bg": "#05070B",
+    "surface": "#0B1018",
+    "surface2": "#111827",
+    "panel": "#0E1522",
+    "border": "#1E2A3A",
+    "cyan": "#00E5FF",
+    "cyan_dim": "#00A8B8",
+    "magenta": "#FF2BD6",
+    "magenta_dim": "#B01A96",
+    "amber": "#FFB020",
+    "lime": "#39FF14",
+    "red": "#FF3355",
+    "red_dim": "#C91838",
+    "violet": "#A855F7",
+    "violet_dim": "#7C3AED",
+    "text": "#E8F1FF",
+    "muted": "#6B7C93",
+    "ghost": "#3A4A5C",
+}
+
 
 class KeyMasterApp(ConstructorMixin, ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("KeyMaster Pro - Python Mastery")
-        self.geometry("1100x750")
+        self.title("KeyMaster // ORBITAL TRAINER")
+        self.geometry("1180x780")
+        self.configure(fg_color=THEME["bg"])
 
         self.player = PlayerProfile()
         self.content = ContentGenerator()
@@ -78,16 +100,22 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
 
         left = ctk.CTkFrame(header, fg_color="transparent")
         left.pack(side="left")
-        self.lbl_level = ctk.CTkLabel(left, text="LVL 1", font=("Roboto", 22), text_color="#3B8ED0")
+        self.lbl_level = ctk.CTkLabel(left, text="LVL 1", font=("Segoe UI", 24, "bold"), text_color=THEME["cyan"])
         self.lbl_level.pack(anchor="w")
-        self.lbl_rank = ctk.CTkLabel(left, text="Novato", font=("Roboto", 12), text_color="gray")
+        self.lbl_rank = ctk.CTkLabel(left, text="Novato", font=("Segoe UI", 12), text_color=THEME["muted"])
         self.lbl_rank.pack(anchor="w")
 
         self.mode_panel = ctk.CTkSegmentedButton(
             header,
             values=["ENTRENAMIENTO", "APRENDIZAJE", "CONSTRUCTOR", "SUPERVIVENCIA", "DIARIO"],
             command=self._on_mode,
-            font=("Roboto", 11),
+            font=("Segoe UI", 11, "bold"),
+            fg_color=THEME["surface"],
+            selected_color=THEME["cyan_dim"],
+            selected_hover_color=THEME["cyan"],
+            unselected_color=THEME["surface2"],
+            unselected_hover_color=THEME["panel"],
+            text_color=THEME["text"],
         )
         self.mode_panel.set("ENTRENAMIENTO")
         self.mode_panel.pack(side="top", pady=4)
@@ -96,139 +124,185 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
         ai_row.pack(side="top", pady=(2, 0))
         self.ai_switch = ctk.CTkSwitch(
             ai_row, text="IA local", command=self._toggle_ai,
-            font=("Roboto", 11),
+            font=("Segoe UI", 11),
+            progress_color=THEME["cyan"], button_color=THEME["cyan"],
+            button_hover_color=THEME["magenta"], text_color=THEME["text"],
         )
         self.ai_switch.pack(side="left", padx=4)
-        self.lbl_ai = ctk.CTkLabel(ai_row, text="Ollama offline", font=("Roboto", 11), text_color="#666")
+        self.lbl_ai = ctk.CTkLabel(ai_row, text="Ollama offline", font=("Segoe UI", 11), text_color=THEME["ghost"])
         self.lbl_ai.pack(side="left", padx=4)
 
         self.model_menu = ctk.CTkOptionMenu(
             ai_row, values=["(sin modelos)"], command=self._on_model_change,
-            width=140, height=24, font=("Roboto", 10),
+            width=140, height=24, font=("Segoe UI", 10),
+            fg_color=THEME["surface2"], button_color=THEME["cyan_dim"],
+            button_hover_color=THEME["cyan"], text_color=THEME["text"],
+            dropdown_fg_color=THEME["panel"], dropdown_hover_color=THEME["surface2"],
+            dropdown_text_color=THEME["text"],
         )
         self.model_menu.pack(side="left", padx=4)
         self.model_menu.configure(state="disabled")
 
         self.adaptive_switch = ctk.CTkSwitch(
             ai_row, text="Adaptativo", command=self._toggle_adaptive,
-            font=("Roboto", 11),
+            font=("Segoe UI", 11),
+            progress_color=THEME["magenta"], button_color=THEME["magenta"],
+            button_hover_color=THEME["cyan"], text_color=THEME["text"],
         )
         self.adaptive_switch.select()
         self.adaptive_switch.pack(side="left", padx=4)
 
-        ctk.CTkLabel(ai_row, text="Ratio IA", font=("Roboto", 10), text_color="#888").pack(side="left", padx=(8, 2))
+        ctk.CTkLabel(ai_row, text="Ratio IA", font=("Segoe UI", 10), text_color=THEME["muted"]).pack(side="left", padx=(8, 2))
         self.ratio_slider = ctk.CTkSlider(
             ai_row, from_=0, to=100, number_of_steps=20,
             command=self._on_ratio_change, width=90, height=16,
+            progress_color=THEME["cyan"], button_color=THEME["cyan"],
+            button_hover_color=THEME["magenta"], fg_color=THEME["surface2"],
         )
         self.ratio_slider.set(55)
         self.ratio_slider.pack(side="left", padx=2)
-        self.lbl_ratio = ctk.CTkLabel(ai_row, text="55%", font=("Roboto", 10), text_color="#888", width=36)
+        self.lbl_ratio = ctk.CTkLabel(ai_row, text="55%", font=("Segoe UI", 10, "bold"), text_color=THEME["cyan"], width=36)
         self.lbl_ratio.pack(side="left")
 
         self._refresh_ai_status()
 
         right = ctk.CTkFrame(header, fg_color="transparent")
         right.pack(side="right")
-        self.lbl_combo = ctk.CTkLabel(right, text="", font=("Roboto", 16), text_color="#FF6B6B")
+        self.lbl_combo = ctk.CTkLabel(right, text="", font=("Segoe UI", 18, "bold"), text_color=THEME["magenta"])
         self.lbl_combo.pack(anchor="e")
-        self.lbl_wpm = ctk.CTkLabel(right, text="WPM: 0", font=("Roboto", 14))
+        self.lbl_wpm = ctk.CTkLabel(right, text="WPM: 0", font=("Segoe UI", 14), text_color=THEME["text"])
         self.lbl_wpm.pack(anchor="e")
         pw = ctk.CTkFrame(right, fg_color="transparent")
         pw.pack(anchor="e", pady=4)
-        self.btn_hint = ctk.CTkButton(pw, text="Pista", width=70, height=28, command=lambda: self._power("hint"))
+        self.btn_hint = ctk.CTkButton(pw, text="Pista", width=70, height=28, command=lambda: self._power("hint"),
+            fg_color=THEME["surface2"], hover_color=THEME["violet_dim"], border_width=1,
+            border_color=THEME["violet"], text_color=THEME["text"], corner_radius=6)
         self.btn_hint.pack(side="left", padx=2)
-        self.btn_skip = ctk.CTkButton(pw, text="Saltar", width=70, height=28, command=lambda: self._power("skip"))
+        self.btn_skip = ctk.CTkButton(pw, text="Saltar", width=70, height=28, command=lambda: self._power("skip"),
+            fg_color=THEME["surface2"], hover_color=THEME["cyan_dim"], border_width=1,
+            border_color=THEME["cyan"], text_color=THEME["text"], corner_radius=6)
         self.btn_skip.pack(side="left", padx=2)
 
-        self.area = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self.area = ctk.CTkScrollableFrame(self, fg_color="transparent",
+            scrollbar_button_color=THEME["cyan_dim"], scrollbar_button_hover_color=THEME["cyan"])
         self.area.grid(row=1, column=0, sticky="nsew", padx=20, pady=8)
 
-        self.path_frame = ctk.CTkFrame(self.area, fg_color="#1a1a1a", corner_radius=10)
-        ctk.CTkLabel(self.path_frame, text="Ruta de Aprendizaje", font=("Roboto Bold", 13)).pack(pady=(8, 4))
+        self.path_frame = ctk.CTkFrame(self.area, fg_color=THEME["panel"], corner_radius=12,
+            border_width=1, border_color=THEME["cyan_dim"])
+        ctk.CTkLabel(self.path_frame, text="◈ RUTA DE APRENDIZAJE", font=("Segoe UI", 13, "bold"),
+                     text_color=THEME["cyan"]).pack(pady=(8, 4))
         self.path_selector = ctk.CTkOptionMenu(
             self.path_frame,
             values=self.content.get_available_paths(),
             command=self._on_path_change,
-            font=("Roboto", 12),
+            font=("Segoe UI", 12),
+            fg_color=THEME["surface2"], button_color=THEME["cyan_dim"],
+            button_hover_color=THEME["cyan"], text_color=THEME["text"],
+            dropdown_fg_color=THEME["panel"], dropdown_hover_color=THEME["surface2"],
+            dropdown_text_color=THEME["text"],
         )
         self.path_selector.set(self.current_learning_path)
         self.path_selector.pack(pady=(0, 8), padx=10)
 
-        self.cat_frame = ctk.CTkFrame(self.area, fg_color="#1a1a1a", corner_radius=10)
-        ctk.CTkLabel(self.cat_frame, text="Categoria de Codigo", font=("Roboto Bold", 13)).pack(pady=(8, 4))
+        self.cat_frame = ctk.CTkFrame(self.area, fg_color=THEME["panel"], corner_radius=12,
+            border_width=1, border_color=THEME["magenta_dim"])
+        ctk.CTkLabel(self.cat_frame, text="◈ CATEGORIA DE CODIGO", font=("Segoe UI", 13, "bold"),
+                     text_color=THEME["magenta"]).pack(pady=(8, 4))
         cats = self.content.get_code_builder_categories()
         self.cat_selector = ctk.CTkOptionMenu(
             self.cat_frame,
             values=cats,
             command=self._on_category_change,
-            font=("Roboto", 12),
+            font=("Segoe UI", 12),
+            fg_color=THEME["surface2"], button_color=THEME["magenta_dim"],
+            button_hover_color=THEME["magenta"], text_color=THEME["text"],
+            dropdown_fg_color=THEME["panel"], dropdown_hover_color=THEME["surface2"],
+            dropdown_text_color=THEME["text"],
         )
         if cats:
             self.cat_selector.set(cats[0])
             self.current_code_category = cats[0]
         self.cat_selector.pack(pady=(0, 8), padx=10)
 
-        self.lbl_diff = ctk.CTkLabel(self.area, text="", font=("Consolas", 12), text_color="#555")
+        self.lbl_diff = ctk.CTkLabel(self.area, text="", font=("Consolas", 12), text_color=THEME["ghost"])
         self.lbl_diff.pack(pady=(12, 4))
-        self.lbl_concept = ctk.CTkLabel(self.area, text="", font=("Roboto", 11), text_color="#888")
+        self.lbl_concept = ctk.CTkLabel(self.area, text="", font=("Segoe UI", 11), text_color=THEME["muted"])
         self.lbl_concept.pack()
-        self.lbl_desc = ctk.CTkLabel(self.area, text="", font=("Roboto", 13), text_color="#888", wraplength=850)
-        self.lbl_target = ctk.CTkLabel(self.area, text="...", font=("JetBrains Mono", 26), wraplength=900)
+        self.lbl_desc = ctk.CTkLabel(self.area, text="", font=("Segoe UI", 13), text_color=THEME["muted"], wraplength=850)
+        self.lbl_target = ctk.CTkLabel(self.area, text="...", font=("JetBrains Mono", 26, "bold"),
+            wraplength=900, text_color=THEME["text"])
         self.lbl_target.pack(pady=12)
-        self.lbl_tip = ctk.CTkLabel(self.area, text="", font=("Roboto Italic", 12), text_color="#FFD700", wraplength=850)
-        self.lbl_hint = ctk.CTkLabel(self.area, text="", font=("Roboto", 12), text_color="#4ECDC4", wraplength=850)
+        self.lbl_tip = ctk.CTkLabel(self.area, text="", font=("Segoe UI", 12), text_color=THEME["amber"], wraplength=850)
+        self.lbl_hint = ctk.CTkLabel(self.area, text="", font=("Segoe UI", 12), text_color=THEME["cyan"], wraplength=850)
 
         self.entry_var = ctk.StringVar()
         self.entry_var.trace_add("write", self._on_type)
         self.entry = ctk.CTkEntry(
-            self.area, textvariable=self.entry_var, width=700, height=52,
-            font=("JetBrains Mono", 22), justify="center", corner_radius=12, border_width=3,
+            self.area, textvariable=self.entry_var, width=720, height=56,
+            font=("JetBrains Mono", 22), justify="center", corner_radius=10, border_width=2,
+            fg_color=THEME["surface"], border_color=THEME["cyan_dim"],
+            text_color=THEME["cyan"], placeholder_text_color=THEME["ghost"],
         )
         self.entry.pack(pady=12)
 
         self.code_textbox = ctk.CTkTextbox(
-            self.area, width=750, height=240, font=("JetBrains Mono", 14),
-            corner_radius=12, border_width=3, wrap="none",
+            self.area, width=780, height=260, font=("JetBrains Mono", 14),
+            corner_radius=10, border_width=2, wrap="none",
+            fg_color=THEME["surface"], border_color=THEME["cyan_dim"],
+            text_color=THEME["text"],
         )
         self.code_textbox.bind("<Control-Return>", lambda e: self._verify_code())
 
-        self.lbl_feedback = ctk.CTkLabel(self.area, text="Escribe para empezar", font=("Roboto", 14))
+        self.lbl_feedback = ctk.CTkLabel(self.area, text="// SISTEMA LISTO — escribe para iniciar",
+            font=("Segoe UI", 14), text_color=THEME["muted"])
         self.lbl_feedback.pack(pady=4)
 
         self.btn_verify = ctk.CTkButton(
-            self.area, text="Verificar Codigo (Ctrl+Enter)", command=self._verify_code,
-            fg_color="#2CC985", hover_color="#25A870", font=("Roboto Bold", 14), height=42, width=280,
+            self.area, text="⚡ VERIFICAR  ·  Ctrl+Enter", command=self._verify_code,
+            fg_color=THEME["lime"], hover_color="#2BD910", font=("Segoe UI", 14, "bold"),
+            height=44, width=300, border_width=2, border_color=THEME["lime"],
+            text_color=THEME["bg"], corner_radius=8,
         )
 
         self.builder_btns = ctk.CTkFrame(self.area, fg_color="transparent")
         self.btn_scaffold = ctk.CTkButton(
             self.builder_btns, text="Scaffold", width=100, height=32,
-            command=self._load_scaffold, fg_color="#3B8ED0", hover_color="#2E6FA8",
+            command=self._load_scaffold, fg_color=THEME["cyan_dim"], hover_color=THEME["cyan"],
+            border_width=1, border_color=THEME["cyan"], text_color=THEME["bg"],
+            font=("Segoe UI", 12, "bold"), corner_radius=8,
         )
         self.btn_scaffold.pack(side="left", padx=4)
         self.btn_reveal = ctk.CTkButton(
             self.builder_btns, text="Revelar linea", width=120, height=32,
-            command=self._reveal_line, fg_color="#8B5CF6", hover_color="#6D28D9",
+            command=self._reveal_line, fg_color=THEME["violet_dim"], hover_color=THEME["violet"],
+            border_width=1, border_color=THEME["violet"], text_color=THEME["text"],
+            font=("Segoe UI", 12, "bold"), corner_radius=8,
         )
         self.btn_reveal.pack(side="left", padx=4)
         self.btn_solution = ctk.CTkButton(
             self.builder_btns, text="Ver solucion", width=120, height=32,
-            command=self._show_solution, fg_color="#E85D4C", hover_color="#C94A3B",
+            command=self._show_solution, fg_color=THEME["red_dim"], hover_color=THEME["red"],
+            border_width=1, border_color=THEME["red"], text_color=THEME["text"],
+            font=("Segoe UI", 12, "bold"), corner_radius=8,
         )
         self.btn_solution.pack(side="left", padx=4)
         self.btn_ai_hint = ctk.CTkButton(
             self.builder_btns, text="Tutor IA", width=100, height=32,
-            command=self._ai_builder_hint, fg_color="#0D9488", hover_color="#0F766E",
+            command=self._ai_builder_hint, fg_color=THEME["magenta_dim"], hover_color=THEME["magenta"],
+            border_width=1, border_color=THEME["magenta"], text_color=THEME["text"],
+            font=("Segoe UI", 12, "bold"), corner_radius=8,
         )
         self.btn_ai_hint.pack(side="left", padx=4)
         self.btn_next_ex = ctk.CTkButton(
             self.builder_btns, text="Siguiente", width=100, height=32,
-            command=self._new_code_builder_exercise, fg_color="#555", hover_color="#444",
+            command=self._new_code_builder_exercise, fg_color=THEME["surface2"], hover_color=THEME["panel"],
+            border_width=1, border_color=THEME["border"], text_color=THEME["text"],
+            font=("Segoe UI", 12, "bold"), corner_radius=8,
         )
         self.btn_next_ex.pack(side="left", padx=4)
 
-        self.progress = ctk.CTkProgressBar(self, height=8)
+        self.progress = ctk.CTkProgressBar(self, height=10,
+            progress_color=THEME["cyan"], fg_color=THEME["surface2"], corner_radius=4)
         self.progress.grid(row=2, column=0, sticky="ew")
         self.entry.focus()
 
@@ -342,11 +416,11 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
         display = self.content.get_challenge_display_text(ch)
         is_blank = getattr(ch, "challenge_type", "full") == "blank"
         if is_blank:
-            self.lbl_target.configure(text=display, text_color="#FFD700")
-            self.lbl_feedback.configure(text="Completa el hueco ____", text_color="#FFB84D")
+            self.lbl_target.configure(text=display, text_color=THEME["amber"])
+            self.lbl_feedback.configure(text="Completa el hueco ____", text_color=THEME["amber"])
         else:
-            self.lbl_target.configure(text=display, text_color="white")
-            self.lbl_feedback.configure(text="Escribe el codigo", text_color="gray")
+            self.lbl_target.configure(text=display, text_color=THEME["text"])
+            self.lbl_feedback.configure(text="Escribe el codigo", text_color=THEME["muted"])
 
         self.lbl_diff.configure(text=f"Nivel {ch.difficulty} | {ch.category}")
         if self.mode == "LEARNING":
@@ -356,7 +430,7 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
         self.lbl_hint.configure(text="")
         self.lbl_hint.pack_forget()
         self.entry_var.set("")
-        self.entry.configure(border_color="#565b5e")
+        self.entry.configure(border_color=THEME["cyan_dim"])
 
     def _on_type(self, *args):
         if self.mode == "CODE_BUILDER":
@@ -372,14 +446,14 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
                     self.audio.play_click()
                 except Exception:
                     pass
-                self.entry.configure(border_color="#2CC985")
+                self.entry.configure(border_color=THEME["lime"])
             else:
                 self.error_count += 1
                 try:
                     self.audio.play_error()
                 except Exception:
                     pass
-                self.entry.configure(border_color="#C92C2C")
+                self.entry.configure(border_color=THEME["red"])
                 if self.mode == "SURVIVAL":
                     self.lives -= 1
                     self.combo = 0
@@ -392,7 +466,7 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
                     except Exception:
                         pass
                     if self.lives <= 0:
-                        self.lbl_feedback.configure(text="Game Over", text_color="#C92C2C")
+                        self.lbl_feedback.configure(text="Game Over", text_color=THEME["red"])
                         try:
                             self.audio.play_gameover()
                         except Exception:
@@ -431,7 +505,7 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
             base = 10 + len(self.current_text)
             total = int(base * (1 + 0.1 * max(0, self.combo - 1)))
             leveled = self.player.add_xp(total)
-            self.lbl_feedback.configure(text=f"+{total} XP", text_color="#2CC985")
+            self.lbl_feedback.configure(text=f"+{total} XP", text_color=THEME["lime"])
             self.lbl_level.configure(text=f"LVL {self.player.level}")
             self.lbl_rank.configure(text=self.player.rank)
             if leveled:
@@ -446,15 +520,15 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
             if getattr(self.current_challenge, "challenge_type", "full") == "blank":
                 base += 5
             self.player.add_xp(base)
-            self.lbl_feedback.configure(text=f"+{base} XP (aprendizaje)", text_color="#4ECDC4")
+            self.lbl_feedback.configure(text=f"+{base} XP (aprendizaje)", text_color=THEME["cyan"])
         elif self.mode == "SURVIVAL":
             self.survival_score += 10 + self.survival_difficulty
             if self.combo and self.combo % 5 == 0:
                 self.survival_difficulty = min(12, self.survival_difficulty + 1)
             self.lbl_level.configure(text=f"SCORE {self.survival_score}")
-            self.lbl_feedback.configure(text="OK", text_color="#2CC985")
+            self.lbl_feedback.configure(text="OK", text_color=THEME["lime"])
         else:
-            self.lbl_feedback.configure(text="Desafio diario OK", text_color="#FFD700")
+            self.lbl_feedback.configure(text="Desafio diario OK", text_color=THEME["amber"])
 
         if self._pending_explanation:
             self.lbl_hint.configure(text=f"\U0001f4d8 {self._pending_explanation}")
@@ -467,7 +541,7 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
         except Exception:
             ok = False
         if not ok:
-            self.lbl_feedback.configure(text="Sin power-up", text_color="#C92C2C")
+            self.lbl_feedback.configure(text="Sin power-up", text_color=THEME["red"])
             return
         try:
             self.audio.play_powerup()
@@ -488,7 +562,7 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
 
     def _refresh_ai_status(self):
         if not get_tutor:
-            self.lbl_ai.configure(text="Modulo ollama no cargado", text_color="#666")
+            self.lbl_ai.configure(text="Modulo ollama no cargado", text_color=THEME["ghost"])
             try:
                 self.model_menu.configure(values=["(sin modelos)"], state="disabled")
             except Exception:
@@ -507,34 +581,33 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
                     current = models[0]
                     self.tutor.set_model(current)
                 self.model_menu.set(current)
-                self.lbl_ai.configure(text="online", text_color="#2CC985")
+                self.lbl_ai.configure(text="online", text_color=THEME["lime"])
             else:
-                self.lbl_ai.configure(text="offline", text_color="#666")
+                self.lbl_ai.configure(text="offline", text_color=THEME["ghost"])
                 self.model_menu.configure(values=["(sin modelos)"], state="disabled")
         except Exception:
-            self.lbl_ai.configure(text="offline", text_color="#666")
+            self.lbl_ai.configure(text="offline", text_color=THEME["ghost"])
 
     def _on_model_change(self, name: str):
         if not self.tutor or not name or name.startswith("("):
             return
         ok = self.tutor.set_model(name)
         if ok:
-            self.lbl_feedback.configure(text=f"Modelo: {self.tutor.model}", text_color="#2CC985")
+            self.lbl_feedback.configure(text=f"Modelo: {self.tutor.model}", text_color=THEME["lime"])
         else:
-            self.lbl_feedback.configure(text=f"No se pudo seleccionar {name}", text_color="#C92C2C")
+            self.lbl_feedback.configure(text=f"No se pudo seleccionar {name}", text_color=THEME["red"])
 
     def _on_ratio_change(self, value):
         pct = int(round(float(value)))
         self.lbl_ratio.configure(text=f"{pct}%")
-        ratio = pct / 100.0
-        self.content.set_ai_ratio(ratio)
+        self.content.set_ai_ratio(pct / 100.0)
 
     def _toggle_adaptive(self):
         enabled = bool(self.adaptive_switch.get())
         self.content.set_adaptive(enabled)
         self._sync_learner_context()
         msg = "Modo adaptativo ON · refuerza conceptos debiles" if enabled else "Modo adaptativo OFF"
-        self.lbl_feedback.configure(text=msg, text_color="#4ECDC4" if enabled else "gray")
+        self.lbl_feedback.configure(text=msg, text_color=THEME["cyan"] if enabled else THEME["muted"])
 
     def _sync_learner_context(self):
         try:
@@ -552,7 +625,7 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
                 self.ai_switch.deselect()
                 self.lbl_feedback.configure(
                     text="Ollama no responde. Instala ollama.com y: ollama pull llama3.2",
-                    text_color="#FFB84D",
+                    text_color=THEME["amber"],
                 )
                 return
             self.content.set_ai(True, self.tutor)
@@ -561,11 +634,11 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
             self._sync_learner_context()
             self.lbl_feedback.configure(
                 text=f"IA activa · {self.tutor.model} · ratio {int(self.ratio_slider.get())}%",
-                text_color="#2CC985",
+                text_color=THEME["lime"],
             )
         else:
             self.content.set_ai(False, self.tutor)
-            self.lbl_feedback.configure(text="IA desactivada · banco fijo de ejercicios", text_color="gray")
+            self.lbl_feedback.configure(text="IA desactivada · banco fijo de ejercicios", text_color=THEME["muted"])
 
 
 if __name__ == "__main__":
