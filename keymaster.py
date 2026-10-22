@@ -2,7 +2,7 @@
 KeyMaster Pro - Python Mastery
 Modos: Entrenamiento, Aprendizaje, Constructor, Supervivencia, Diario
 Soporta huecos (____), explicaciones y constructor multilinea.
-IA local opcional via Ollama (switch en la UI).
+IA local opcional via Ollama (modelo, ratio, adaptativo).
 """
 import customtkinter as ctk
 import time
@@ -95,12 +95,37 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
         ai_row = ctk.CTkFrame(header, fg_color="transparent")
         ai_row.pack(side="top", pady=(2, 0))
         self.ai_switch = ctk.CTkSwitch(
-            ai_row, text="IA local (Ollama)", command=self._toggle_ai,
+            ai_row, text="IA local", command=self._toggle_ai,
             font=("Roboto", 11),
         )
         self.ai_switch.pack(side="left", padx=4)
         self.lbl_ai = ctk.CTkLabel(ai_row, text="Ollama offline", font=("Roboto", 11), text_color="#666")
-        self.lbl_ai.pack(side="left", padx=6)
+        self.lbl_ai.pack(side="left", padx=4)
+
+        self.model_menu = ctk.CTkOptionMenu(
+            ai_row, values=["(sin modelos)"], command=self._on_model_change,
+            width=140, height=24, font=("Roboto", 10),
+        )
+        self.model_menu.pack(side="left", padx=4)
+        self.model_menu.configure(state="disabled")
+
+        self.adaptive_switch = ctk.CTkSwitch(
+            ai_row, text="Adaptativo", command=self._toggle_adaptive,
+            font=("Roboto", 11),
+        )
+        self.adaptive_switch.select()
+        self.adaptive_switch.pack(side="left", padx=4)
+
+        ctk.CTkLabel(ai_row, text="Ratio IA", font=("Roboto", 10), text_color="#888").pack(side="left", padx=(8, 2))
+        self.ratio_slider = ctk.CTkSlider(
+            ai_row, from_=0, to=100, number_of_steps=20,
+            command=self._on_ratio_change, width=90, height=16,
+        )
+        self.ratio_slider.set(55)
+        self.ratio_slider.pack(side="left", padx=2)
+        self.lbl_ratio = ctk.CTkLabel(ai_row, text="55%", font=("Roboto", 10), text_color="#888", width=36)
+        self.lbl_ratio.pack(side="left")
+
         self._refresh_ai_status()
 
         right = ctk.CTkFrame(header, fg_color="transparent")
@@ -285,6 +310,7 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
             self.entry.focus()
 
     def _new_challenge(self):
+        self._sync_learner_context()
         if self.mode == "CODE_BUILDER":
             self._new_code_builder_exercise()
             return
@@ -358,6 +384,13 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
                     self.lives -= 1
                     self.combo = 0
                     self.lbl_rank.configure(text=f"Vidas: {self.lives}")
+                    try:
+                        if self.current_challenge:
+                            self.player.record_concept_fail(
+                                self.current_challenge.concept, errors=1
+                            )
+                    except Exception:
+                        pass
                     if self.lives <= 0:
                         self.lbl_feedback.configure(text="Game Over", text_color="#C92C2C")
                         try:
@@ -456,6 +489,10 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
     def _refresh_ai_status(self):
         if not get_tutor:
             self.lbl_ai.configure(text="Modulo ollama no cargado", text_color="#666")
+            try:
+                self.model_menu.configure(values=["(sin modelos)"], state="disabled")
+            except Exception:
+                pass
             return
         try:
             if self.tutor is None:
@@ -463,11 +500,48 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
             else:
                 self.tutor.refresh()
             if self.tutor.is_available():
-                self.lbl_ai.configure(text=self.tutor.status_text(), text_color="#2CC985")
+                models = self.tutor.list_models() or [self.tutor.model or "?"]
+                self.model_menu.configure(values=models, state="normal")
+                current = self.tutor.model or models[0]
+                if current not in models:
+                    current = models[0]
+                    self.tutor.set_model(current)
+                self.model_menu.set(current)
+                self.lbl_ai.configure(text="online", text_color="#2CC985")
             else:
-                self.lbl_ai.configure(text="Ollama offline · ollama serve", text_color="#666")
+                self.lbl_ai.configure(text="offline", text_color="#666")
+                self.model_menu.configure(values=["(sin modelos)"], state="disabled")
         except Exception:
-            self.lbl_ai.configure(text="Ollama offline", text_color="#666")
+            self.lbl_ai.configure(text="offline", text_color="#666")
+
+    def _on_model_change(self, name: str):
+        if not self.tutor or not name or name.startswith("("):
+            return
+        ok = self.tutor.set_model(name)
+        if ok:
+            self.lbl_feedback.configure(text=f"Modelo: {self.tutor.model}", text_color="#2CC985")
+        else:
+            self.lbl_feedback.configure(text=f"No se pudo seleccionar {name}", text_color="#C92C2C")
+
+    def _on_ratio_change(self, value):
+        pct = int(round(float(value)))
+        self.lbl_ratio.configure(text=f"{pct}%")
+        ratio = pct / 100.0
+        self.content.set_ai_ratio(ratio)
+
+    def _toggle_adaptive(self):
+        enabled = bool(self.adaptive_switch.get())
+        self.content.set_adaptive(enabled)
+        self._sync_learner_context()
+        msg = "Modo adaptativo ON · refuerza conceptos debiles" if enabled else "Modo adaptativo OFF"
+        self.lbl_feedback.configure(text=msg, text_color="#4ECDC4" if enabled else "gray")
+
+    def _sync_learner_context(self):
+        try:
+            weak = self.player.get_weak_concepts(limit=6)
+        except Exception:
+            weak = []
+        self.content.set_learner_context(weak_concepts=weak, level=self.player.level)
 
     def _toggle_ai(self):
         self.use_ai = bool(self.ai_switch.get())
@@ -477,13 +551,16 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
                 self.use_ai = False
                 self.ai_switch.deselect()
                 self.lbl_feedback.configure(
-                    text="Ollama no responde. Instala ollama.com y ejecuta: ollama pull llama3.2",
+                    text="Ollama no responde. Instala ollama.com y: ollama pull llama3.2",
                     text_color="#FFB84D",
                 )
                 return
             self.content.set_ai(True, self.tutor)
+            self.content.set_ai_ratio(float(self.ratio_slider.get()) / 100.0)
+            self.content.set_adaptive(bool(self.adaptive_switch.get()))
+            self._sync_learner_context()
             self.lbl_feedback.configure(
-                text=f"IA activa · {self.tutor.status_text()}. Genera ejercicios y feedback guiado.",
+                text=f"IA activa · {self.tutor.model} · ratio {int(self.ratio_slider.get())}%",
                 text_color="#2CC985",
             )
         else:

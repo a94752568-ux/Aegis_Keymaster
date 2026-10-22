@@ -11,18 +11,16 @@ python keymaster.py
 
 ## IA local (Ollama) — opcional
 
-Mejora ejercicios dinamicos y feedback guiado con un LLM en tu maquina.
-
 1. Instala [Ollama](https://ollama.com)
-2. Descarga un modelo ligero: `ollama pull llama3.2`
-3. Asegurate de que el servicio corre (`ollama serve` si hace falta)
-4. Abre KeyMaster y activa el switch **IA local (Ollama)**
+2. `ollama pull llama3.2` (u otro modelo)
+3. Activa **IA local** en la barra superior
 
-Con IA activa:
-- ~55% de los retos de Aprendizaje/Constructor se generan al momento
-- En Constructor, **Tutor IA** da pistas sin revelar la solucion
-- Si fallas al verificar, el tutor explica el error en espanol
+### Controles de IA
 
-Sin Ollama la app funciona igual con el banco fijo de ejercicios.
+- **Selector de modelo**: modelos instalados en Ollama
+- **Ratio IA (0–100%)**: probabilidad de ejercicio generado vs banco fijo
+- **Adaptativo**: prioriza conceptos con mas fallos del perfil
 
-Modelos recomendados (rapidos): `llama3.2`, `qwen2.5-coder:3b`, `phi3:mini`.
+Con adaptativo, el perfil guarda `concept_stats` (intentos, errores, exitos) y alimenta tanto el banco fijo (peso x3) como los prompts de Ollama.
+
+Sin Ollama la app funciona con el banco fijo; el modo adaptativo sigue reforzando conceptos debiles offline.
