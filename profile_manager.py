@@ -188,16 +188,54 @@ class PlayerProfile:
     def check_achievements(self) -> list:
         return self.achievement_manager.check_achievements()
 
+    # Spaced repetition intervals (days)
+    SRS_INTERVALS = (1, 3, 7, 14, 30, 60)
+
+    def _schedule_review(self, st: dict, success: bool, perfect: bool = False):
+        """Update next_review / interval after success or fail."""
+        today = datetime.now().date()
+        if success:
+            prev = int(st.get("srs_step", 0) or 0)
+            idx = min(len(self.SRS_INTERVALS) - 1, prev + (2 if perfect else 1))
+            days = self.SRS_INTERVALS[idx]
+            st["srs_step"] = idx
+            st["interval_days"] = days
+            st["next_review"] = (today + timedelta(days=days)).isoformat()
+            st["consecutive_correct"] = int(st.get("consecutive_correct", 0) or 0) + 1
+        else:
+            st["srs_step"] = 0
+            st["interval_days"] = 1
+            st["next_review"] = (today + timedelta(days=1)).isoformat()
+            st["consecutive_correct"] = 0
+        st["last_reviewed"] = today.isoformat()
+
     def _touch_concept(self, concept: str, errors: int = 0, success: bool = False, perfect: bool = False):
         if not concept:
             return
-        st = self.concept_stats.setdefault(concept, {"attempts": 0, "errors": 0, "successes": 0, "fails": 0})
+        st = self.concept_stats.setdefault(
+            concept,
+            {
+                "attempts": 0,
+                "errors": 0,
+                "successes": 0,
+                "fails": 0,
+                "srs_step": 0,
+                "interval_days": 0,
+                "next_review": None,
+                "consecutive_correct": 0,
+                "last_reviewed": None,
+            },
+        )
         st["attempts"] = st.get("attempts", 0) + 1
         st["errors"] = st.get("errors", 0) + max(0, int(errors or 0))
         if success:
             st["successes"] = st.get("successes", 0) + 1
         else:
             st["fails"] = st.get("fails", 0) + 1
+        try:
+            self._schedule_review(st, success=success, perfect=perfect)
+        except Exception:
+            pass
 
     def record_concept_fail(self, concept: str, errors: int = 1):
         """Call when the player fails a challenge (wrong answer / survival death)."""
@@ -205,9 +243,66 @@ class PlayerProfile:
             self._touch_concept(concept, errors=errors, success=False)
             self.save_profile()
 
+    def get_due_concepts(self, limit: int = 8) -> list:
+        """Concepts with next_review today or past (spaced-repetition queue)."""
+        today = datetime.now().date()
+        due = []
+        for concept, st in self.concept_stats.items():
+            nr = st.get("next_review")
+            if not nr:
+                if st.get("fails", 0) > 0 or (
+                    st.get("successes", 0) == 0 and st.get("attempts", 0) > 0
+                ):
+                    due.append((0, concept))
+                continue
+            try:
+                d = datetime.strptime(str(nr)[:10], "%Y-%m-%d").date()
+            except Exception:
+                continue
+            if d <= today:
+                overdue = (today - d).days
+                due.append((-overdue, concept))
+        due.sort()
+        return [c for _, c in due[:limit]]
+
+    def get_review_schedule(self, limit: int = 12) -> list:
+        """Schedule rows for Stats panel."""
+        today = datetime.now().date()
+        items = []
+        for concept, st in self.concept_stats.items():
+            nr = st.get("next_review")
+            interval = st.get("interval_days", 0)
+            if not nr:
+                status = "pendiente"
+                days_left = 0
+            else:
+                try:
+                    d = datetime.strptime(str(nr)[:10], "%Y-%m-%d").date()
+                    days_left = (d - today).days
+                    if days_left < 0:
+                        status = f"vencido {-days_left}d"
+                    elif days_left == 0:
+                        status = "hoy"
+                    else:
+                        status = f"en {days_left}d"
+                except Exception:
+                    status = "?"
+                    days_left = 999
+            items.append({
+                "concept": concept,
+                "status": status,
+                "days_left": days_left,
+                "interval": interval,
+                "step": st.get("srs_step", 0),
+                "next_review": nr,
+            })
+        items.sort(key=lambda x: (x["days_left"], x["concept"]))
+        return items[:limit]
+
     def get_weak_concepts(self, limit: int = 5) -> list:
-        """Concepts with highest fail rate or error density (for adaptive practice)."""
+        """Weak + due concepts for adaptive / spaced practice."""
         scored = []
+        due_set = set(self.get_due_concepts(limit=20))
         for concept, st in self.concept_stats.items():
             attempts = max(1, st.get("attempts", 0))
             fails = st.get("fails", 0)
@@ -218,6 +313,8 @@ class PlayerProfile:
             score = fail_rate * 2.0 + err_density * 0.5
             if successes == 0 and attempts >= 1:
                 score += 0.4
+            if concept in due_set:
+                score += 1.5
             if score > 0.05:
                 scored.append((score, concept))
         scored.sort(reverse=True)
@@ -306,4 +403,6 @@ class PlayerProfile:
             "streak": self.daily_streak,
             "concepts": len(self.completed_concepts),
             "weak": self.get_weak_concepts(3),
+            "due": self.get_due_concepts(5),
+            "due_count": len(self.get_due_concepts(50)),
         }

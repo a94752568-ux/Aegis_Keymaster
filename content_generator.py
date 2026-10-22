@@ -27,6 +27,7 @@ class ContentGenerator:
         self._ai_ratio = 0.55
         self.adaptive = True
         self._weak_concepts = []
+        self._due_concepts = []
         self._player_level = 1
 
     def set_ai(self, enabled: bool, tutor=None):
@@ -43,8 +44,9 @@ class ContentGenerator:
     def set_adaptive(self, enabled: bool):
         self.adaptive = bool(enabled)
 
-    def set_learner_context(self, weak_concepts=None, level: int = 1):
+    def set_learner_context(self, weak_concepts=None, level: int = 1, due_concepts=None):
         self._weak_concepts = list(weak_concepts or [])
+        self._due_concepts = list(due_concepts or [])
         self._player_level = max(1, int(level or 1))
 
     def _tutor_ok(self):
@@ -122,7 +124,9 @@ class ContentGenerator:
     def get_challenge(self, difficulty: int, path: str = None, prefer_blank: bool = False) -> Challenge:
         if self._tutor_ok() and random.random() < self._ai_ratio:
             try:
-                focus = self._weak_concepts if self.adaptive else None
+                focus = None
+                if self.adaptive:
+                    focus = list(dict.fromkeys((self._due_concepts or []) + (self._weak_concepts or [])))[:6]
                 data = self._tutor.generate_challenge(
                     path=path or "basics",
                     difficulty=difficulty,
@@ -151,11 +155,16 @@ class ContentGenerator:
                 blanks = [c for c in pool if getattr(c, "challenge_type", "full") == "blank"]
                 if blanks and random.random() < 0.45:
                     pool = blanks
-            if self.adaptive and self._weak_concepts:
-                weak = set(self._weak_concepts)
+            if self.adaptive and (self._weak_concepts or self._due_concepts):
+                weak = set(self._weak_concepts or [])
+                due = set(self._due_concepts or [])
                 weighted = []
                 for c in pool:
-                    w = 3 if c.concept in weak else 1
+                    w = 1
+                    if c.concept in due:
+                        w += 5
+                    if c.concept in weak:
+                        w += 2
                     weighted.extend([c] * w)
                 return random.choice(weighted)
             return random.choice(pool)
@@ -216,7 +225,9 @@ class ContentGenerator:
     def get_code_builder_exercise(self, difficulty: int = None, category: str = None):
         if self._tutor_ok() and random.random() < self._ai_ratio:
             try:
-                focus = self._weak_concepts if self.adaptive else None
+                focus = None
+                if self.adaptive:
+                    focus = list(dict.fromkeys((self._due_concepts or []) + (self._weak_concepts or [])))[:6]
                 data = self._tutor.generate_builder_exercise(
                     category=category or "basic_functions",
                     difficulty=difficulty or 3,
