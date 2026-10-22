@@ -30,6 +30,7 @@ class PlayerProfile:
         
         # Learning progress
         self.completed_concepts: Set[str] = set()
+        self.concept_stats: Dict[str, Dict[str, int]] = {}
         self.current_learning_path = "basics"
         self.mastered_paths: Set[str] = set()
         
@@ -91,15 +92,20 @@ class PlayerProfile:
         Returns True if leveled up
         """
         self.xp += amount
-        self.achievement_manager.stats["total_xp_earned"] += amount
-        
         leveled_up = False
+        
         while self.xp >= self.xp_for_next_level:
             self.xp -= self.xp_for_next_level
             self.level += 1
             leveled_up = True
+            # Award power-ups on level up
+            self.earn_powerup("hint", 1)
+            if self.level % 5 == 0:
+                self.earn_powerup("skip", 1)
+            if self.level % 10 == 0:
+                self.earn_powerup("slow_time", 1)
         
-        if leveled_up:
+        if leveled_up or amount > 0:
             self.save_profile()
         
         return leveled_up
@@ -126,6 +132,7 @@ class PlayerProfile:
         if concept:
             self.completed_concepts.add(concept)
             self.achievement_manager.stats["python_concepts_mastered"].add(concept)
+            self._touch_concept(concept, errors=errors, success=True, perfect=perfect)
         
         self.save_profile()
     
@@ -134,78 +141,98 @@ class PlayerProfile:
         Update survival mode statistics
         Returns True if new high score
         """
-        is_new_record = score > self.best_survival_score
-        if is_new_record:
+        is_high_score = score > self.best_survival_score
+        if is_high_score:
             self.best_survival_score = score
+            self.achievement_manager.stats["best_survival_score"] = score
         
         if combo > self.highest_combo:
             self.highest_combo = combo
             self.achievement_manager.stats["highest_combo"] = combo
         
-        self.achievement_manager.stats["survival_runs"] += 1
         self.save_profile()
-        
-        return is_new_record
+        return is_high_score
     
     def update_combo(self, combo: int):
-        """Update highest combo if needed"""
         if combo > self.highest_combo:
             self.highest_combo = combo
             self.achievement_manager.stats["highest_combo"] = combo
             self.save_profile()
     
     def complete_daily_challenge(self, challenge_id: int):
-        """Mark a daily challenge as completed"""
         today = datetime.now().strftime("%Y-%m-%d")
-        
-        # Check streak
-        if self.last_daily_date:
-            last_date = datetime.strptime(self.last_daily_date, "%Y-%m-%d")
-            days_diff = (datetime.now() - last_date).days
-            
-            if days_diff == 1:
+        if self.last_daily_date != today:
+            yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+            if self.last_daily_date == yesterday:
                 self.daily_streak += 1
-            elif days_diff > 1:
+            else:
                 self.daily_streak = 1
-        else:
-            self.daily_streak = 1
-        
-        self.last_daily_date = today
+            self.daily_completed = []
+            self.last_daily_date = today
         if challenge_id not in self.daily_completed:
             self.daily_completed.append(challenge_id)
-        
-        # Award bonus XP for daily
-        self.add_xp(50)
-        
         self.save_profile()
     
     def use_powerup(self, powerup_type: str) -> bool:
-        """
-        Use a power-up if available
-        Returns True if successful
-        """
-        if powerup_type in self.powerups and self.powerups[powerup_type] > 0:
+        if self.powerups.get(powerup_type, 0) > 0:
             self.powerups[powerup_type] -= 1
             self.save_profile()
             return True
         return False
     
     def earn_powerup(self, powerup_type: str, amount: int = 1):
-        """Earn a power-up"""
         if powerup_type in self.powerups:
             self.powerups[powerup_type] += amount
             self.save_profile()
     
     def check_achievements(self) -> list:
-        """Check for newly unlocked achievements"""
-        player_data = {
-            "level": self.level,
-            "fastest_wpm": self.fastest_wpm,
-            "best_survival": self.best_survival_score
-        }
-        
-        return self.achievement_manager.check_achievements(player_data)
-    
+        return self.achievement_manager.check_achievements()
+
+    def _touch_concept(self, concept: str, errors: int = 0, success: bool = False, perfect: bool = False):
+        if not concept:
+            return
+        st = self.concept_stats.setdefault(concept, {"attempts": 0, "errors": 0, "successes": 0, "fails": 0})
+        st["attempts"] = st.get("attempts", 0) + 1
+        st["errors"] = st.get("errors", 0) + max(0, int(errors or 0))
+        if success:
+            st["successes"] = st.get("successes", 0) + 1
+        else:
+            st["fails"] = st.get("fails", 0) + 1
+
+    def record_concept_fail(self, concept: str, errors: int = 1):
+        """Call when the player fails a challenge (wrong answer / survival death)."""
+        if concept:
+            self._touch_concept(concept, errors=errors, success=False)
+            self.save_profile()
+
+    def get_weak_concepts(self, limit: int = 5) -> list:
+        """Concepts with highest fail rate or error density (for adaptive practice)."""
+        scored = []
+        for concept, st in self.concept_stats.items():
+            attempts = max(1, st.get("attempts", 0))
+            fails = st.get("fails", 0)
+            errs = st.get("errors", 0)
+            successes = st.get("successes", 0)
+            fail_rate = fails / attempts
+            err_density = errs / attempts
+            score = fail_rate * 2.0 + err_density * 0.5
+            if successes == 0 and attempts >= 1:
+                score += 0.4
+            if score > 0.05:
+                scored.append((score, concept))
+        scored.sort(reverse=True)
+        return [c for _, c in scored[:limit]]
+
+    def get_strong_concepts(self) -> set:
+        strong = set()
+        for concept, st in self.concept_stats.items():
+            attempts = st.get("attempts", 0)
+            successes = st.get("successes", 0)
+            fails = st.get("fails", 0)
+            if attempts >= 3 and successes >= 2 and fails / max(1, attempts) < 0.25:
+                strong.add(concept)
+        return strong
+
     def save_profile(self):
         """Save profile to JSON file"""
         data = {
@@ -219,6 +246,7 @@ class PlayerProfile:
             "total_errors": self.total_errors,
             "total_time_played": self.total_time_played,
             "completed_concepts": list(self.completed_concepts),
+            "concept_stats": self.concept_stats,
             "current_learning_path": self.current_learning_path,
             "mastered_paths": list(self.mastered_paths),
             "daily_completed": self.daily_completed,
@@ -249,6 +277,7 @@ class PlayerProfile:
                 self.total_errors = data.get("total_errors", 0)
                 self.total_time_played = data.get("total_time_played", 0)
                 self.completed_concepts = set(data.get("completed_concepts", []))
+                self.concept_stats = data.get("concept_stats", {}) or {}
                 self.current_learning_path = data.get("current_learning_path", "basics")
                 self.mastered_paths = set(data.get("mastered_paths", []))
                 self.daily_completed = data.get("daily_completed", [])
@@ -266,14 +295,15 @@ class PlayerProfile:
     def get_stats_summary(self) -> Dict:
         """Get a summary of player statistics"""
         return {
-            "Level": self.level,
-            "Rank": self.rank,
-            "Total Challenges": self.total_challenges_completed,
-            "Perfect Runs": self.perfect_challenges,
-            "Fastest WPM": self.fastest_wpm,
-            "Accuracy": f"{self.accuracy:.1f}%",
-            "Best Survival": self.best_survival_score,
-            "Highest Combo": self.highest_combo,
-            "Daily Streak": self.daily_streak,
-            "Achievements": f"{self.achievement_manager.get_unlocked_count()}/{self.achievement_manager.get_total_count()}"
+            "level": self.level,
+            "xp": self.xp,
+            "rank": self.rank,
+            "accuracy": round(self.accuracy, 1),
+            "challenges": self.total_challenges_completed,
+            "perfect": self.perfect_challenges,
+            "best_wpm": self.fastest_wpm,
+            "survival": self.best_survival_score,
+            "streak": self.daily_streak,
+            "concepts": len(self.completed_concepts),
+            "weak": self.get_weak_concepts(3),
         }
