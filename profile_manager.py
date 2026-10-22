@@ -188,11 +188,18 @@ class PlayerProfile:
     def check_achievements(self) -> list:
         return self.achievement_manager.check_achievements()
 
-    # Spaced repetition intervals (days)
+    # Legacy ladder kept as fallback if fsrs import fails
     SRS_INTERVALS = (1, 3, 7, 14, 30, 60)
 
-    def _schedule_review(self, st: dict, success: bool, perfect: bool = False):
-        """Update next_review / interval after success or fail."""
+    def _schedule_review(self, st: dict, success: bool, perfect: bool = False, errors: int = 0):
+        """FSRS-lite scheduling via fsrs module (legacy ladder as fallback)."""
+        try:
+            from fsrs import review as fsrs_review, ensure_card
+            ensure_card(st)
+            fsrs_review(st, success=success, perfect=perfect, errors=errors)
+            return
+        except Exception:
+            pass
         today = datetime.now().date()
         if success:
             prev = int(st.get("srs_step", 0) or 0)
@@ -224,6 +231,10 @@ class PlayerProfile:
                 "next_review": None,
                 "consecutive_correct": 0,
                 "last_reviewed": None,
+                "fsrs_difficulty": None,
+                "fsrs_stability": None,
+                "fsrs_reps": 0,
+                "fsrs_lapses": 0,
             },
         )
         st["attempts"] = st.get("attempts", 0) + 1
@@ -233,7 +244,7 @@ class PlayerProfile:
         else:
             st["fails"] = st.get("fails", 0) + 1
         try:
-            self._schedule_review(st, success=success, perfect=perfect)
+            self._schedule_review(st, success=success, perfect=perfect, errors=errors)
         except Exception:
             pass
 
@@ -244,32 +255,55 @@ class PlayerProfile:
             self.save_profile()
 
     def get_due_concepts(self, limit: int = 8) -> list:
-        """Concepts with next_review today or past (spaced-repetition queue)."""
+        """Concepts due now (FSRS next_review / low retrievability)."""
         today = datetime.now().date()
         due = []
+        try:
+            from fsrs import is_due
+        except Exception:
+            is_due = None
         for concept, st in self.concept_stats.items():
+            if is_due is not None:
+                try:
+                    due_flag, r = is_due(st, today)
+                    if due_flag:
+                        due.append((r, concept))
+                    continue
+                except Exception:
+                    pass
             nr = st.get("next_review")
             if not nr:
                 if st.get("fails", 0) > 0 or (
                     st.get("successes", 0) == 0 and st.get("attempts", 0) > 0
                 ):
-                    due.append((0, concept))
+                    due.append((0.0, concept))
                 continue
             try:
                 d = datetime.strptime(str(nr)[:10], "%Y-%m-%d").date()
             except Exception:
                 continue
             if d <= today:
-                overdue = (today - d).days
-                due.append((-overdue, concept))
+                due.append((0.0, concept))
         due.sort()
         return [c for _, c in due[:limit]]
 
     def get_review_schedule(self, limit: int = 12) -> list:
-        """Schedule rows for Stats panel."""
+        """Schedule rows for Stats panel (FSRS S/D/R when available)."""
         today = datetime.now().date()
         items = []
+        try:
+            from fsrs import schedule_summary
+        except Exception:
+            schedule_summary = None
         for concept, st in self.concept_stats.items():
+            if schedule_summary is not None:
+                try:
+                    row = schedule_summary(st, today)
+                    row["concept"] = concept
+                    items.append(row)
+                    continue
+                except Exception:
+                    pass
             nr = st.get("next_review")
             interval = st.get("interval_days", 0)
             if not nr:
@@ -295,8 +329,14 @@ class PlayerProfile:
                 "interval": interval,
                 "step": st.get("srs_step", 0),
                 "next_review": nr,
+                "stability": st.get("fsrs_stability"),
+                "difficulty": st.get("fsrs_difficulty"),
+                "retrievability": None,
+                "due": days_left <= 0,
+                "reps": st.get("fsrs_reps", 0),
+                "lapses": st.get("fsrs_lapses", 0),
             })
-        items.sort(key=lambda x: (x["days_left"], x["concept"]))
+        items.sort(key=lambda x: (x.get("days_left", 999), x.get("concept", "")))
         return items[:limit]
 
     def get_weak_concepts(self, limit: int = 5) -> list:
