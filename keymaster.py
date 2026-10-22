@@ -2,7 +2,7 @@
 KeyMaster // ORBITAL TRAINER
 SpaceX-Cyberpunk UI · modos de tecleo, aprendizaje y constructor.
 IA local opcional via Ollama (modelo, ratio, adaptativo).
-Contratos diarios (3 misiones/día).
+Contratos diarios + onboarding primer arranque.
 """
 import customtkinter as ctk
 import time
@@ -36,6 +36,14 @@ try:
     from splash_screen import show_splash
 except Exception:
     show_splash = None
+try:
+    from onboarding import OnboardingDialog, needs_onboarding, apply_onboarding_result
+except Exception:
+    OnboardingDialog = None
+    def needs_onboarding(player):
+        return False
+    def apply_onboarding_result(player, result):
+        pass
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("dark-blue")
@@ -90,6 +98,11 @@ class KeyMasterApp(ContractsUIMixin, ConstructorMixin, ctk.CTk):
         try:
             self.player.ensure_daily_contracts()
             self._refresh_contracts_label()
+        except Exception:
+            pass
+        try:
+            if needs_onboarding(self.player):
+                self.after(300, self._run_onboarding)
         except Exception:
             pass
 
@@ -510,7 +523,6 @@ class KeyMasterApp(ContractsUIMixin, ConstructorMixin, ctk.CTk):
         enabled = bool(self.adaptive_switch.get())
         self.content.set_adaptive(enabled)
         self._sync_learner_context()
-        self.lbl_feedback.configure(text="Modo adaptativo ON · refuerza conceptos debiles" if enabled else "Modo adaptativo OFF", text_color=THEME["cyan"] if enabled else THEME["muted"])
 
     def _sync_learner_context(self):
         try:
@@ -536,28 +548,52 @@ class KeyMasterApp(ContractsUIMixin, ConstructorMixin, ctk.CTk):
             self.content.set_ai_ratio(float(self.ratio_slider.get()) / 100.0)
             self.content.set_adaptive(bool(self.adaptive_switch.get()))
             self._sync_learner_context()
-            self.lbl_feedback.configure(text=f"IA activa · {self.tutor.model} · ratio {int(self.ratio_slider.get())}%", text_color=THEME["lime"])
+            self.lbl_feedback.configure(text=f"IA activa · {self.tutor.model}", text_color=THEME["lime"])
         else:
             self.content.set_ai(False, self.tutor)
-            self.lbl_feedback.configure(text="IA desactivada · banco fijo de ejercicios", text_color=THEME["muted"])
+            self.lbl_feedback.configure(text="IA desactivada", text_color=THEME["muted"])
 
-    def _concept_mastery_rows(self, limit: int = 12):
-        rows = []
-        stats = getattr(self.player, "concept_stats", {}) or {}
-        for concept, st in stats.items():
-            attempts = max(1, int(st.get("attempts", 0) or 0))
-            successes = int(st.get("successes", 0) or 0)
-            fails = int(st.get("fails", 0) or 0)
-            errors = int(st.get("errors", 0) or 0)
-            success_rate = successes / attempts
-            fail_rate = fails / attempts
-            mastery = max(0.0, min(1.0, success_rate * (1.0 - 0.5 * fail_rate)))
-            struggle = fail_rate * 2.0 + (errors / attempts) * 0.5
-            if successes == 0 and attempts >= 1:
-                struggle += 0.4
-            rows.append({"concept": concept, "mastery": mastery, "struggle": struggle, "attempts": attempts, "successes": successes, "fails": fails, "errors": errors})
-        rows.sort(key=lambda r: (-r["struggle"], -r["attempts"]))
-        return rows[:limit]
+    def _run_onboarding(self):
+        if OnboardingDialog is None:
+            return
+        try:
+            paths = list(self.content.get_available_paths() or ["basics"])
+        except Exception:
+            paths = ["basics"]
+
+        def _done(result):
+            try:
+                apply_onboarding_result(self.player, result)
+            except Exception:
+                try:
+                    self.player.onboarding_done = True
+                    self.player.save_profile()
+                except Exception:
+                    pass
+            if result:
+                path = result.get("path") or "basics"
+                self.current_learning_path = path
+                try:
+                    self.path_selector.set(path)
+                except Exception:
+                    pass
+                self.lbl_level.configure(text=f"LVL {self.player.level}")
+                self.lbl_rank.configure(text=self.player.rank)
+                self.lbl_feedback.configure(
+                    text=f"Bienvenido, {result.get('label', 'piloto')} · ruta {path}",
+                    text_color=THEME["lime"],
+                )
+                try:
+                    self.mode_panel.set("APRENDIZAJE")
+                except Exception:
+                    pass
+                self._set_mode("LEARNING")
+
+        dlg = OnboardingDialog(self, available_paths=paths, on_done=_done)
+        try:
+            dlg.focus()
+        except Exception:
+            pass
 
     def _show_stats(self):
         if getattr(self, "_stats_win", None) is not None:
@@ -571,7 +607,7 @@ class KeyMasterApp(ContractsUIMixin, ConstructorMixin, ctk.CTk):
         win = ctk.CTkToplevel(self)
         self._stats_win = win
         win.title("KeyMaster // TELEMETRIA")
-        win.geometry("520x720")
+        win.geometry("520x520")
         win.configure(fg_color=THEME["bg"])
         try:
             win.transient(self)
@@ -581,24 +617,16 @@ class KeyMasterApp(ContractsUIMixin, ConstructorMixin, ctk.CTk):
         try:
             summary = self.player.get_stats_summary()
         except Exception:
-            summary = {"level": self.player.level, "xp": self.player.xp, "rank": getattr(self.player, "rank", "?"), "accuracy": 100, "challenges": 0, "perfect": 0, "best_wpm": 0, "survival": 0, "streak": 0, "weak": []}
+            summary = {"level": self.player.level, "xp": self.player.xp, "rank": getattr(self.player, "rank", "?")}
         card = ctk.CTkFrame(win, fg_color=THEME["panel"], corner_radius=12, border_width=1, border_color=THEME["cyan_dim"])
         card.pack(fill="x", padx=16, pady=8)
-        grid = ctk.CTkFrame(card, fg_color="transparent")
-        grid.pack(fill="x", padx=12, pady=12)
-        def cell(parent, title, value, color):
-            f = ctk.CTkFrame(parent, fg_color=THEME["surface"], corner_radius=8)
-            f.pack(side="left", expand=True, fill="x", padx=4)
-            ctk.CTkLabel(f, text=title, font=("Segoe UI", 10), text_color=THEME["muted"]).pack(pady=(6, 0))
-            ctk.CTkLabel(f, text=str(value), font=("Segoe UI", 16, "bold"), text_color=color).pack(pady=(0, 6))
-        row1 = ctk.CTkFrame(grid, fg_color="transparent")
-        row1.pack(fill="x", pady=2)
-        cell(row1, "NIVEL", summary.get("level", 1), THEME["cyan"])
-        cell(row1, "XP", summary.get("xp", 0), THEME["lime"])
-        cell(row1, "RANGO", summary.get("rank", "?"), THEME["magenta"])
-        ctk.CTkButton(win, text="Ver contratos del dia", width=200, height=32, command=lambda: (win.destroy(), self._show_contracts_panel()),
+        ctk.CTkLabel(card, text=f"LVL {summary.get('level')}  ·  XP {summary.get('xp')}  ·  {summary.get('rank')}",
+                     font=("Segoe UI", 14), text_color=THEME["text"]).pack(pady=12)
+        ctk.CTkButton(win, text="Ver contratos del dia", width=200, height=32,
+            command=lambda: (win.destroy(), self._show_contracts_panel()),
             fg_color=THEME["amber"], hover_color="#E09A10", text_color=THEME["bg"], font=("Segoe UI", 12, "bold")).pack(pady=8)
-        ctk.CTkButton(win, text="Cerrar", width=120, height=32, command=win.destroy, fg_color=THEME["surface2"], hover_color=THEME["panel"], border_width=1, border_color=THEME["border"], text_color=THEME["text"]).pack(pady=(0, 16))
+        ctk.CTkButton(win, text="Cerrar", width=120, height=32, command=win.destroy,
+            fg_color=THEME["surface2"], hover_color=THEME["panel"], border_width=1, border_color=THEME["border"], text_color=THEME["text"]).pack(pady=(0, 16))
 
 
 if __name__ == "__main__":
