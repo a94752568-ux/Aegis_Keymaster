@@ -51,6 +51,7 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
         self._builder_revealed = 0
         self._builder_used_scaffold = False
         self._builder_used_reveal = False
+        self._builder_used_solution = False
 
         self._build_ui()
         self._set_mode("TRAINING")
@@ -162,6 +163,11 @@ class KeyMasterApp(ConstructorMixin, ctk.CTk):
             command=self._reveal_line, fg_color="#8B5CF6", hover_color="#6D28D9",
         )
         self.btn_reveal.pack(side="left", padx=4)
+        self.btn_solution = ctk.CTkButton(
+            self.builder_btns, text="Ver solucion", width=120, height=32,
+            command=self._show_solution, fg_color="#E85D4C", hover_color="#C94A3B",
+        )
+        self.btn_solution.pack(side="left", padx=4)
         self.btn_next_ex = ctk.CTkButton(
             self.builder_btns, text="Siguiente", width=100, height=32,
             command=self._new_code_builder_exercise, fg_color="#555", hover_color="#444",
