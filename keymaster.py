@@ -558,8 +558,26 @@ class KeyMasterApp(PathChecklistMixin, FsrsBannerMixin, ContractsUIMixin, Constr
             self.lbl_feedback.configure(text="Desafio diario OK", text_color=THEME["amber"])
         if self._pending_explanation:
             self.lbl_hint.configure(text=f"📖 {self._pending_explanation}")
-            self.lbl_hint.pack(before=self.entry, pady=(0, 8))
+            self._pack_hint_label()
         self.after(1200, self._new_challenge)
+
+    def _pack_hint_label(self):
+        """Coloca la pista sobre el widget de entrada activo (entry o editor del Constructor)."""
+        anchor = None
+        for w in (self.entry, self.code_textbox, self.btn_verify):
+            try:
+                if w.winfo_manager() == "pack":
+                    anchor = w
+                    break
+            except Exception:
+                pass
+        try:
+            if anchor is not None:
+                self.lbl_hint.pack(before=anchor, pady=(0, 8))
+            else:
+                self.lbl_hint.pack(pady=(0, 8))
+        except Exception:
+            self.lbl_hint.pack(pady=(0, 8))
 
     def _power(self, kind):
         try:
@@ -573,13 +591,24 @@ class KeyMasterApp(PathChecklistMixin, FsrsBannerMixin, ContractsUIMixin, Constr
             self.audio.play_powerup()
         except Exception:
             pass
-        if kind == "hint" and self.current_challenge:
+        if kind == "hint" and self.mode == "CODE_BUILDER":
+            ex = getattr(self, "_builder_exercise", None) or {}
+            parts = [f"💡 {ex.get('description') or 'Construye el ejercicio bloque a bloque'}"]
+            try:
+                struct = self.content.get_code_builder_structure_hint(ex)
+                if struct:
+                    parts.append(f"🧩 {struct}")
+            except Exception:
+                pass
+            self.lbl_hint.configure(text="\n".join(parts))
+            self._pack_hint_label()
+        elif kind == "hint" and self.current_challenge:
             parts = [f"💡 {self.current_challenge.hint or 'Sigue el patron'}"]
             exp = self.content.get_explanation(self.current_challenge.concept, self.current_challenge)
             if exp:
                 parts.append(f"📖 {exp}")
             self.lbl_hint.configure(text="\n".join(parts))
-            self.lbl_hint.pack(before=self.entry, pady=(0, 8))
+            self._pack_hint_label()
         elif kind == "skip":
             self.after(200, self._new_code_builder_exercise if self.mode == "CODE_BUILDER" else self._new_challenge)
 
