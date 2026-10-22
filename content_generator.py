@@ -24,12 +24,28 @@ class ContentGenerator:
         self._generate_daily_challenges()
         self.use_ai = False
         self._tutor = None
-        self._ai_ratio = 0.55  # probability of AI challenge when enabled
+        self._ai_ratio = 0.55
+        self.adaptive = True
+        self._weak_concepts = []
+        self._player_level = 1
 
     def set_ai(self, enabled: bool, tutor=None):
         self.use_ai = bool(enabled)
         if tutor is not None:
             self._tutor = tutor
+
+    def set_ai_ratio(self, ratio: float):
+        try:
+            self._ai_ratio = max(0.0, min(1.0, float(ratio)))
+        except (TypeError, ValueError):
+            self._ai_ratio = 0.55
+
+    def set_adaptive(self, enabled: bool):
+        self.adaptive = bool(enabled)
+
+    def set_learner_context(self, weak_concepts=None, level: int = 1):
+        self._weak_concepts = list(weak_concepts or [])
+        self._player_level = max(1, int(level or 1))
 
     def _tutor_ok(self):
         if not self.use_ai:
@@ -104,13 +120,14 @@ class ContentGenerator:
         }
 
     def get_challenge(self, difficulty: int, path: str = None, prefer_blank: bool = False) -> Challenge:
-        # Optional dynamic challenge via Ollama
         if self._tutor_ok() and random.random() < self._ai_ratio:
             try:
+                focus = self._weak_concepts if self.adaptive else None
                 data = self._tutor.generate_challenge(
                     path=path or "basics",
                     difficulty=difficulty,
                     prefer_blank=prefer_blank,
+                    focus_concepts=focus,
                 )
                 if data:
                     return Challenge(
@@ -129,11 +146,19 @@ class ContentGenerator:
         def _pick(candidates):
             if not candidates:
                 return None
+            pool = list(candidates)
             if prefer_blank:
-                blanks = [c for c in candidates if getattr(c, "challenge_type", "full") == "blank"]
+                blanks = [c for c in pool if getattr(c, "challenge_type", "full") == "blank"]
                 if blanks and random.random() < 0.45:
-                    return random.choice(blanks)
-            return random.choice(candidates)
+                    pool = blanks
+            if self.adaptive and self._weak_concepts:
+                weak = set(self._weak_concepts)
+                weighted = []
+                for c in pool:
+                    w = 3 if c.concept in weak else 1
+                    weighted.extend([c] * w)
+                return random.choice(weighted)
+            return random.choice(pool)
         if path and path in self.learning_paths:
             candidates = [ch for ch in self.learning_paths[path] if abs(ch.difficulty - difficulty) <= 2]
             picked = _pick(candidates)
@@ -191,9 +216,11 @@ class ContentGenerator:
     def get_code_builder_exercise(self, difficulty: int = None, category: str = None):
         if self._tutor_ok() and random.random() < self._ai_ratio:
             try:
+                focus = self._weak_concepts if self.adaptive else None
                 data = self._tutor.generate_builder_exercise(
                     category=category or "basic_functions",
                     difficulty=difficulty or 3,
+                    focus_concepts=focus,
                 )
                 if data:
                     return data
