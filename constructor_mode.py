@@ -32,6 +32,7 @@ class ConstructorMixin:
         self._builder_revealed = 0
         self._builder_used_scaffold = False
         self._builder_used_reveal = False
+        self._builder_used_solution = False
 
         self.current_challenge = type("obj", (object,), {
             "text": exercise["code"],
@@ -82,7 +83,7 @@ class ConstructorMixin:
         self.code_textbox.configure(border_color="#565b5e")
         n_lines = len(exercise["code"].split("\n"))
         self.lbl_feedback.configure(
-            text=f"Escribe el codigo ({n_lines} lineas). Scaffold / Revelar linea si necesitas ayuda. Ctrl+Enter verifica.",
+            text=f"Escribe el codigo ({n_lines} lineas). Scaffold / Revelar linea / Ver solucion si necesitas ayuda. Ctrl+Enter verifica.",
             text_color="gray",
         )
         self.lbl_hint.pack_forget()
@@ -124,6 +125,31 @@ class ConstructorMixin:
             text=f"Linea {self._builder_revealed}/{len(target_lines)} revelada. Quedan {left}.",
             text_color="#8B5CF6",
         )
+        self.code_textbox.focus()
+
+    def _show_solution(self):
+        """Show the full correct code in the editor (study mode)."""
+        if self.mode != "CODE_BUILDER" or not getattr(self, "_builder_exercise", None):
+            return
+        code = self._builder_exercise.get("code") or ""
+        if not code.strip():
+            self.lbl_feedback.configure(text="No hay solucion disponible", text_color="#C92C2C")
+            return
+        self._builder_used_solution = True
+        self._builder_used_reveal = True
+        self._builder_revealed = len(code.split("\n"))
+        self.code_textbox.delete("1.0", "end")
+        self.code_textbox.insert("1.0", code)
+        self.code_textbox.configure(border_color="#E85D4C")
+        goals = self._builder_exercise.get("goals") or []
+        note = "Solucion completa. Estudiá y escribe de nuevo (Siguiente) para practicar."
+        if goals:
+            note += " Objetivos: " + " · ".join(goals)
+        self.lbl_feedback.configure(text=note, text_color="#E85D4C")
+        try:
+            self.audio.play_powerup()
+        except Exception:
+            pass
         self.code_textbox.focus()
 
     def _normalize_code(self, s: str) -> str:
@@ -192,10 +218,13 @@ class ConstructorMixin:
             pass
         self.code_textbox.configure(border_color="#2CC985")
         base = 30 + self.current_challenge.difficulty * 10
-        if getattr(self, "_builder_used_reveal", False):
+        if getattr(self, "_builder_used_solution", False):
+            base = max(5, base // 4)
+        elif getattr(self, "_builder_used_reveal", False):
             base = max(10, base - 15)
         if getattr(self, "_builder_used_scaffold", False) and getattr(self, "_builder_revealed", 0) == 0:
-            base = max(10, base - 5)
+            if not getattr(self, "_builder_used_solution", False):
+                base = max(10, base - 5)
         self.player.add_xp(base)
         concept = self.current_challenge.concept
         try:
@@ -207,7 +236,9 @@ class ConstructorMixin:
 
         exp = self.content.get_explanation(concept, self.current_challenge)
         bonus_note = ""
-        if getattr(self, "_builder_used_reveal", False):
+        if getattr(self, "_builder_used_solution", False):
+            bonus_note = " (viste la solucion)"
+        elif getattr(self, "_builder_used_reveal", False):
             bonus_note = " (XP reducido por revelaciones)"
         elif getattr(self, "_builder_used_scaffold", False):
             bonus_note = " (usaste scaffold)"
