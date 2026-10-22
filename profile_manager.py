@@ -19,11 +19,9 @@ class PlayerProfile(DailyContractsMixin):
     def __init__(self):
         self.filename = "keymaster_profile.json"
         
-        # Core progression
         self.xp = 0
         self.level = 1
         
-        # Statistics
         self.total_challenges_completed = 0
         self.perfect_challenges = 0
         self.best_survival_score = 0
@@ -32,31 +30,27 @@ class PlayerProfile(DailyContractsMixin):
         self.total_errors = 0
         self.total_time_played = 0
         
-        # Learning progress
         self.completed_concepts: Set[str] = set()
         self.concept_stats: Dict[str, Dict[str, int]] = {}
         self.current_learning_path = "basics"
         self.mastered_paths: Set[str] = set()
         
-        # Daily challenges
         self.daily_completed = []
         self.daily_streak = 0
         self.last_daily_date = ""
         self.contracts_date = ""
         self.contracts = []
         self.contracts_claimed = False
+        self.onboarding_done = False
+        self.onboarding_level_key = ""
         
-        # Power-ups
         self.powerups = {
             "hint": 3,
             "skip": 2,
             "slow_time": 1
         }
         
-        # Combo tracking
         self.highest_combo = 0
-        
-        # Achievement system
         self.achievement_manager = AchievementManager()
         
         self.load_profile()
@@ -176,11 +170,9 @@ class PlayerProfile(DailyContractsMixin):
     def check_achievements(self) -> list:
         return self.achievement_manager.check_achievements()
 
-    # Legacy ladder kept as fallback if fsrs import fails
     SRS_INTERVALS = (1, 3, 7, 14, 30, 60)
 
     def _schedule_review(self, st: dict, success: bool, perfect: bool = False, errors: int = 0):
-        """FSRS-lite scheduling via fsrs module (legacy ladder as fallback)."""
         try:
             from fsrs import review as fsrs_review, ensure_card
             ensure_card(st)
@@ -210,19 +202,11 @@ class PlayerProfile(DailyContractsMixin):
         st = self.concept_stats.setdefault(
             concept,
             {
-                "attempts": 0,
-                "errors": 0,
-                "successes": 0,
-                "fails": 0,
-                "srs_step": 0,
-                "interval_days": 0,
-                "next_review": None,
-                "consecutive_correct": 0,
-                "last_reviewed": None,
-                "fsrs_difficulty": None,
-                "fsrs_stability": None,
-                "fsrs_reps": 0,
-                "fsrs_lapses": 0,
+                "attempts": 0, "errors": 0, "successes": 0, "fails": 0,
+                "srs_step": 0, "interval_days": 0, "next_review": None,
+                "consecutive_correct": 0, "last_reviewed": None,
+                "fsrs_difficulty": None, "fsrs_stability": None,
+                "fsrs_reps": 0, "fsrs_lapses": 0,
             },
         )
         st["attempts"] = st.get("attempts", 0) + 1
@@ -308,17 +292,11 @@ class PlayerProfile(DailyContractsMixin):
                     status = "?"
                     days_left = 999
             items.append({
-                "concept": concept,
-                "status": status,
-                "days_left": days_left,
-                "interval": interval,
-                "step": st.get("srs_step", 0),
-                "next_review": nr,
-                "stability": st.get("fsrs_stability"),
-                "difficulty": st.get("fsrs_difficulty"),
-                "retrievability": None,
-                "due": days_left <= 0,
-                "reps": st.get("fsrs_reps", 0),
+                "concept": concept, "status": status, "days_left": days_left,
+                "interval": interval, "step": st.get("srs_step", 0),
+                "next_review": nr, "stability": st.get("fsrs_stability"),
+                "difficulty": st.get("fsrs_difficulty"), "retrievability": None,
+                "due": days_left <= 0, "reps": st.get("fsrs_reps", 0),
                 "lapses": st.get("fsrs_lapses", 0),
             })
         items.sort(key=lambda x: (x.get("days_left", 999), x.get("concept", "")))
@@ -375,6 +353,8 @@ class PlayerProfile(DailyContractsMixin):
             "contracts_date": getattr(self, "contracts_date", ""),
             "contracts": getattr(self, "contracts", []),
             "contracts_claimed": getattr(self, "contracts_claimed", False),
+            "onboarding_done": getattr(self, "onboarding_done", False),
+            "onboarding_level_key": getattr(self, "onboarding_level_key", ""),
             "powerups": self.powerups,
             "highest_combo": self.highest_combo,
             "achievements": self.achievement_manager.to_dict()
@@ -406,6 +386,8 @@ class PlayerProfile(DailyContractsMixin):
                 self.contracts_date = data.get("contracts_date", "")
                 self.contracts = data.get("contracts", []) or []
                 self.contracts_claimed = bool(data.get("contracts_claimed", False))
+                self.onboarding_done = bool(data.get("onboarding_done", False))
+                self.onboarding_level_key = data.get("onboarding_level_key", "")
                 self.powerups = data.get("powerups", {"hint": 3, "skip": 2, "slow_time": 1})
                 self.highest_combo = data.get("highest_combo", 0)
                 if "achievements" in data:
