@@ -20,8 +20,6 @@ class ContentGenerator:
     def __init__(self):
         self.learning_paths = self._init_learning_paths()
         self.code_builder_exercises = self._init_code_builder_exercises()
-        self.daily_challenges = []
-        self._generate_daily_challenges()
         self.use_ai = False
         self._tutor = None
         self._ai_ratio = 0.55
@@ -29,6 +27,8 @@ class ContentGenerator:
         self._weak_concepts = []
         self._due_concepts = []
         self._player_level = 1
+        self.daily_challenges = []
+        self._generate_daily_challenges()
 
     def set_ai(self, enabled: bool, tutor=None):
         self.use_ai = bool(enabled)
