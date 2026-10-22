@@ -31,14 +31,12 @@ class ConstructorMixin:
         if not exercise:
             self.lbl_feedback.configure(text="Sin ejercicios en esta categoria", text_color="#FF3355")
             return
-
         self._builder_exercise = exercise
         self._builder_revealed = 0
         self._builder_used_scaffold = False
         self._builder_used_reveal = False
         self._builder_used_solution = False
         self._builder_passed_via_tests = False
-
         self.current_challenge = type("obj", (object,), {
             "text": exercise["code"],
             "difficulty": exercise["difficulty"],
@@ -52,11 +50,8 @@ class ConstructorMixin:
             "scaffold": exercise.get("scaffold", ""),
             "goals": exercise.get("goals", []),
         })()
-
         cat_name = self.content.get_category_name(self.current_code_category)
-        self.lbl_diff.configure(
-            text=f"Nivel {exercise['difficulty']} | {cat_name}"
-        )
+        self.lbl_diff.configure(text=f"Nivel {exercise['difficulty']} | {cat_name}")
         self.lbl_concept.configure(text=exercise.get("title", ""))
         desc = exercise.get("description", "")
         goals = exercise.get("goals") or []
@@ -64,7 +59,6 @@ class ConstructorMixin:
             desc = desc + "\nObjetivos: " + " · ".join(goals)
         self.lbl_desc.configure(text=desc)
         self.lbl_desc.pack(pady=(4, 4))
-
         self.lbl_target.pack_forget()
         tip = ""
         try:
@@ -83,7 +77,6 @@ class ConstructorMixin:
             self.lbl_tip.pack(pady=(0, 6))
         else:
             self.lbl_tip.pack_forget()
-
         self.code_textbox.delete("1.0", "end")
         self._clear_diff_tags()
         self.code_textbox.configure(border_color="#00A8B8")
@@ -109,10 +102,7 @@ class ConstructorMixin:
         self._clear_diff_tags()
         self.code_textbox.insert("1.0", scaffold)
         self.code_textbox.configure(border_color="#00E5FF")
-        self.lbl_feedback.configure(
-            text="Scaffold cargado. Completa los pass / comentarios.",
-            text_color="#00E5FF",
-        )
+        self.lbl_feedback.configure(text="Scaffold cargado. Completa los pass / comentarios.", text_color="#00E5FF")
         self.code_textbox.focus()
 
     def _reveal_line(self):
@@ -131,10 +121,7 @@ class ConstructorMixin:
         self.code_textbox.insert("1.0", partial)
         self.code_textbox.configure(border_color="#A855F7")
         left = len(target_lines) - self._builder_revealed
-        self.lbl_feedback.configure(
-            text=f"Linea {self._builder_revealed}/{len(target_lines)} revelada. Quedan {left}.",
-            text_color="#A855F7",
-        )
+        self.lbl_feedback.configure(text=f"Linea {self._builder_revealed}/{len(target_lines)} revelada. Quedan {left}.", text_color="#A855F7")
         self.code_textbox.focus()
 
     def _show_solution(self):
@@ -245,7 +232,6 @@ class ConstructorMixin:
         return summary
 
     def _run_exercise_tests(self, user_code: str, tests: list):
-        """Execute user code then run unit tests. Returns (ok, message)."""
         if not tests:
             return None, "sin tests"
         import io
@@ -306,7 +292,6 @@ class ConstructorMixin:
             return
         user_code = self.code_textbox.get("1.0", "end-1c")
         target_code = self.current_challenge.text
-
         try:
             ast.parse(user_code)
         except SyntaxError as e:
@@ -327,7 +312,6 @@ class ConstructorMixin:
             except Exception:
                 pass
             return
-
         tests = []
         try:
             if getattr(self, "_builder_exercise", None):
@@ -360,12 +344,10 @@ class ConstructorMixin:
             except Exception:
                 pass
             return
-
         if self._codes_equivalent(user_code, target_code):
             self._builder_passed_via_tests = False
             self._on_code_builder_success()
             return
-
         u_lines = self._normalize_code(user_code).split("\n")
         t_lines = self._normalize_code(target_code).split("\n")
         problems = []
@@ -385,31 +367,10 @@ class ConstructorMixin:
                 break
         if not problems and len(u_lines) > len(t_lines):
             problems.append(f"Hay {len(u_lines) - len(t_lines)} linea(s) de mas al final")
-
         self.code_textbox.configure(border_color="#FF3355")
         diff_summary = self._apply_line_diff(user_code, target_code)
         msg = problems[0] if problems else "No coincide. Revisa indentacion y sintaxis."
-        self.lbl_feedback.configure(
-            text=msg + "\n" + diff_summary, text_color="#FF3355"
-        )
-        ai_note = ""
-        try:
-            if getattr(self, "use_ai", False) and getattr(self, "tutor", None):
-                desc = ""
-                concept = ""
-                if getattr(self, "_builder_exercise", None):
-                    desc = self._builder_exercise.get("description", "")
-                    concept = self._builder_exercise.get("concept", "")
-                guided = self.tutor.explain_mismatch(
-                    user_code=user_code,
-                    target_code=target_code,
-                    concept=concept,
-                    description=desc,
-                )
-                if guided:
-                    ai_note = guided
-        except Exception:
-            ai_note = ""
+        self.lbl_feedback.configure(text=msg + "\n" + diff_summary, text_color="#FF3355")
         try:
             concept = ""
             if getattr(self, "_builder_exercise", None):
@@ -418,24 +379,6 @@ class ConstructorMixin:
                 self.player.record_concept_fail(concept, errors=1)
         except Exception:
             pass
-        if ai_note:
-            self.lbl_hint.configure(text=f"🤖 Tutor: {ai_note}")
-            self.lbl_hint.pack(pady=(0, 8))
-        else:
-            try:
-                u_n = self._normalize_code(user_code).split("\n")
-                t_n = self._normalize_code(target_code).split("\n")
-                for i, tline in enumerate(t_n):
-                    uline = u_n[i] if i < len(u_n) else None
-                    if uline != tline:
-                        exp = tline if len(tline) <= 60 else tline[:57] + "..."
-                        self.lbl_hint.configure(
-                            text=f"◈ Linea {i+1} esperada (referencia): {exp}"
-                        )
-                        self.lbl_hint.pack(pady=(0, 8))
-                        break
-            except Exception:
-                pass
         try:
             self.audio.play_error()
         except Exception:
@@ -470,7 +413,13 @@ class ConstructorMixin:
             )
         except Exception:
             pass
-
+        try:
+            if hasattr(self, "player") and hasattr(self.player, "bump_contract"):
+                just = self.player.bump_contract("constructor_ok", 1)
+                if just and hasattr(self, "_refresh_contracts_label"):
+                    self._refresh_contracts_label()
+        except Exception:
+            pass
         exp = self.content.get_explanation(concept, self.current_challenge)
         bonus_note = ""
         if getattr(self, "_builder_used_solution", False):
