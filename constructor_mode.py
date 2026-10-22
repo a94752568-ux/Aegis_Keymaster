@@ -37,6 +37,7 @@ class ConstructorMixin:
         self._builder_used_scaffold = False
         self._builder_used_reveal = False
         self._builder_used_solution = False
+        self._builder_passed_via_tests = False
 
         self.current_challenge = type("obj", (object,), {
             "text": exercise["code"],
@@ -87,8 +88,10 @@ class ConstructorMixin:
         self._clear_diff_tags()
         self.code_textbox.configure(border_color="#00A8B8")
         n_lines = len(exercise["code"].split("\n"))
+        n_tests = len(exercise.get("tests") or [])
+        test_note = f" · {n_tests} tests" if n_tests else " · match exacto"
         self.lbl_feedback.configure(
-            text=f"Escribe el codigo ({n_lines} lineas). Scaffold / Revelar / Ver solucion / Tutor IA si necesitas ayuda. Ctrl+Enter verifica.",
+            text=f"Escribe el codigo ({n_lines} lineas{test_note}). Scaffold / Revelar / Ver solucion / Tutor IA. Ctrl+Enter verifica.",
             text_color="#6B7C93",
         )
         self.lbl_hint.pack_forget()
@@ -149,7 +152,7 @@ class ConstructorMixin:
         self.code_textbox.insert("1.0", code)
         self.code_textbox.configure(border_color="#FF3355")
         goals = self._builder_exercise.get("goals") or []
-        note = "Solucion completa. Estudiá y escribe de nuevo (Siguiente) para practicar."
+        note = "Solucion completa. Estudia y escribe de nuevo (Siguiente) para practicar."
         if goals:
             note += " Objetivos: " + " · ".join(goals)
         self.lbl_feedback.configure(text=note, text_color="#FF3355")
@@ -160,7 +163,6 @@ class ConstructorMixin:
         self.code_textbox.focus()
 
     def _get_textbox_widget(self):
-        """Underlying tk Text for tag support."""
         tb = self.code_textbox
         return getattr(tb, "_textbox", tb)
 
@@ -183,19 +185,16 @@ class ConstructorMixin:
             pass
 
     def _apply_line_diff(self, user_code: str, target_code: str) -> str:
-        """Highlight lines in the editor; return a short summary string."""
         self._setup_diff_tags()
         self._clear_diff_tags()
         t_lines = self._normalize_code(target_code).split("\n")
         tb = self._get_textbox_widget()
-
         raw = self.code_textbox.get("1.0", "end-1c")
         raw_lines = raw.replace("\r\n", "\n").split("\n")
         n_u = [ln.rstrip().replace("\t", "    ") for ln in raw_lines]
         while n_u and n_u[-1] == "":
             n_u.pop()
         n_t = t_lines
-
         ok = bad = extra = missing = 0
         first_bad = None
         max_check = max(len(n_u), len(n_t))
@@ -226,14 +225,12 @@ class ConstructorMixin:
                         first_bad = line_no
             except Exception:
                 pass
-
         if first_bad is not None:
             try:
                 tb.see(f"{first_bad}.0")
                 tb.mark_set("insert", f"{first_bad}.0")
             except Exception:
                 pass
-
         parts = []
         if bad:
             parts.append(f"{bad} distinta(s)")
@@ -246,6 +243,54 @@ class ConstructorMixin:
             summary += f" · linea {first_bad}"
         summary += "  |  verde=ok  rojo=error  ambar=extra"
         return summary
+
+    def _run_exercise_tests(self, user_code: str, tests: list):
+        """Execute user code then run unit tests. Returns (ok, message)."""
+        if not tests:
+            return None, "sin tests"
+        import io
+        import contextlib
+        ns = {"__name__": "__builder_test__"}
+        buf = io.StringIO()
+        try:
+            compiled = compile(user_code, "<user>", "exec")
+            with contextlib.redirect_stdout(buf):
+                exec(compiled, ns, ns)
+        except Exception as e:
+            return False, f"Error al ejecutar tu codigo: {type(e).__name__}: {e}"
+        out = buf.getvalue()
+        passed = 0
+        for i, t in enumerate(tests, 1):
+            if isinstance(t, str):
+                try:
+                    exec(compile(t, f"<test{i}>", "exec"), ns, ns)
+                    passed += 1
+                except AssertionError:
+                    return False, f"Test {i}/{len(tests)} fallo: {t}"
+                except Exception as e:
+                    return False, f"Test {i}/{len(tests)} error: {type(e).__name__}: {e}"
+            elif isinstance(t, dict):
+                if "stdout_contains" in t:
+                    needle = str(t["stdout_contains"])
+                    if needle not in out:
+                        return False, f"Test {i}/{len(tests)}: salida no contiene {needle!r}"
+                    passed += 1
+                elif "stdout_equals" in t:
+                    if out.strip() != str(t["stdout_equals"]).strip():
+                        return False, f"Test {i}/{len(tests)}: salida esperada {t['stdout_equals']!r}"
+                    passed += 1
+                elif "var" in t:
+                    name = t["var"]
+                    expected = t.get("equals")
+                    actual = ns.get(name, "__missing__")
+                    if actual != expected:
+                        return False, f"Test {i}/{len(tests)}: {name}={actual!r}, se esperaba {expected!r}"
+                    passed += 1
+                else:
+                    return False, f"Test {i}: formato desconocido"
+            else:
+                return False, f"Test {i}: tipo no soportado"
+        return True, f"{passed}/{len(tests)} tests OK"
 
     def _normalize_code(self, s: str) -> str:
         lines = [ln.rstrip() for ln in s.replace("\r\n", "\n").replace("\t", "    ").split("\n")]
@@ -283,7 +328,41 @@ class ConstructorMixin:
                 pass
             return
 
+        tests = []
+        try:
+            if getattr(self, "_builder_exercise", None):
+                tests = list(self._builder_exercise.get("tests") or [])
+        except Exception:
+            tests = []
+        if tests:
+            ok, msg = self._run_exercise_tests(user_code, tests)
+            if ok:
+                self._builder_passed_via_tests = True
+                self.lbl_feedback.configure(text=f"Tests: {msg}", text_color="#39FF14")
+                self._on_code_builder_success()
+                return
+            self.code_textbox.configure(border_color="#FF3355")
+            self.lbl_feedback.configure(text=msg, text_color="#FF3355")
+            try:
+                self._apply_line_diff(user_code, target_code)
+            except Exception:
+                pass
+            try:
+                self.audio.play_error()
+            except Exception:
+                pass
+            try:
+                concept = ""
+                if getattr(self, "_builder_exercise", None):
+                    concept = self._builder_exercise.get("concept", "")
+                if concept and hasattr(self, "player"):
+                    self.player.record_concept_fail(concept, errors=1)
+            except Exception:
+                pass
+            return
+
         if self._codes_equivalent(user_code, target_code):
+            self._builder_passed_via_tests = False
             self._on_code_builder_success()
             return
 
@@ -400,10 +479,12 @@ class ConstructorMixin:
             bonus_note = " (XP reducido por revelaciones)"
         elif getattr(self, "_builder_used_scaffold", False):
             bonus_note = " (usaste scaffold)"
+        via = " · tests OK" if getattr(self, "_builder_passed_via_tests", False) else ""
         self.lbl_feedback.configure(
-            text=f"Codigo correcto! +{base} XP{bonus_note}",
+            text=f"Codigo correcto{via}! +{base} XP{bonus_note}",
             text_color="#39FF14",
         )
+        self._builder_passed_via_tests = False
         if exp:
             self.lbl_hint.configure(text=f"📖 {exp}")
             self.lbl_hint.pack(pady=(0, 8))
