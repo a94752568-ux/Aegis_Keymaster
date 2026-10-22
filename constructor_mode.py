@@ -325,7 +325,7 @@ class ConstructorMixin:
             pass
         try:
             if hasattr(self.player, "bump_contract"):
-                just = self.player.bump_contract("builder_ok", 1)
+                just = self.player.bump_contract("constructor_ok", 1)
                 if just and hasattr(self, "_toast_contract"):
                     self._toast_contract("◆ Contrato Constructor", "#FFB020")
             if hasattr(self, "_refresh_contracts_label"):

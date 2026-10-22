@@ -715,10 +715,10 @@ class KeyMasterApp(PathChecklistMixin, FsrsBannerMixin, ContractsUIMixin, Constr
 
 
 if __name__ == "__main__":
+    app = KeyMasterApp()
     if show_splash:
         try:
-            show_splash()
+            show_splash(app)
         except Exception:
             pass
-    app = KeyMasterApp()
     app.mainloop()
