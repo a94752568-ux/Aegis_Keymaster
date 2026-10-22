@@ -188,6 +188,53 @@ class ContentGenerator:
         concepts = set(ch.concept for ch in self.learning_paths[path])
         return len(concepts & completed_concepts), len(concepts)
 
+    def get_path_concepts(self, path: str) -> list:
+        if path not in self.learning_paths:
+            return []
+        seen = []
+        for ch in self.learning_paths[path]:
+            c = getattr(ch, "concept", "") or ""
+            if c and c not in seen:
+                seen.append(c)
+        return seen
+
+    def get_path_checklist(self, path: str, concept_stats: dict = None, completed_concepts=None) -> list:
+        concept_stats = concept_stats or {}
+        completed = set(completed_concepts or [])
+        rows = []
+        for concept in self.get_path_concepts(path):
+            st = concept_stats.get(concept, {}) or {}
+            attempts = int(st.get("attempts", 0) or 0)
+            successes = int(st.get("successes", 0) or 0)
+            fails = int(st.get("fails", 0) or 0)
+            nr = st.get("next_review")
+            due = False
+            if nr:
+                try:
+                    from datetime import datetime
+                    d = datetime.strptime(str(nr)[:10], "%Y-%m-%d").date()
+                    due = d <= datetime.now().date()
+                except Exception:
+                    due = False
+            if successes >= 2 and fails / max(1, attempts) < 0.35:
+                status = "mastered"
+            elif concept in completed and successes >= 1:
+                status = "mastered"
+            elif due:
+                status = "due"
+            elif attempts > 0:
+                status = "learning"
+            else:
+                status = "todo"
+            rows.append({
+                "concept": concept,
+                "status": status,
+                "attempts": attempts,
+                "successes": successes,
+                "fails": fails,
+            })
+        return rows
+
     def _generate_daily_challenges(self):
         self.daily_challenges = [self.get_challenge(3), self.get_challenge(6), self.get_challenge(9)]
 
