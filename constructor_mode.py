@@ -20,6 +20,10 @@ class ConstructorMixin:
         self._new_code_builder_exercise()
 
     def _new_code_builder_exercise(self):
+        try:
+            self._sync_learner_context()
+        except Exception:
+            pass
         diff = min(8, 2 + self.player.level // 3)
         exercise = self.content.get_code_builder_exercise(
             difficulty=diff, category=self.current_code_category
@@ -128,7 +132,6 @@ class ConstructorMixin:
         self.code_textbox.focus()
 
     def _show_solution(self):
-        """Show the full correct code in the editor (study mode)."""
         if self.mode != "CODE_BUILDER" or not getattr(self, "_builder_exercise", None):
             return
         code = self._builder_exercise.get("code") or ""
@@ -224,6 +227,14 @@ class ConstructorMixin:
         except Exception:
             ai_note = ""
         self.lbl_feedback.configure(text=msg, text_color="#C92C2C")
+        try:
+            concept = ""
+            if getattr(self, "_builder_exercise", None):
+                concept = self._builder_exercise.get("concept", "")
+            if concept and hasattr(self, "player"):
+                self.player.record_concept_fail(concept, errors=1)
+        except Exception:
+            pass
         if ai_note:
             self.lbl_hint.configure(text=f"🤖 Tutor: {ai_note}")
             self.lbl_hint.pack(pady=(0, 8))
@@ -276,7 +287,6 @@ class ConstructorMixin:
         self.after(1800, self._new_code_builder_exercise)
 
     def _ai_builder_hint(self):
-        """Request a guided hint from Ollama without revealing the full solution."""
         if self.mode != "CODE_BUILDER" or not getattr(self, "_builder_exercise", None):
             return
         if not getattr(self, "use_ai", False) or not getattr(self, "tutor", None):
