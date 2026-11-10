@@ -1,26 +1,79 @@
-# Aegis KeyMaster
+# Aegis Keymaster
 
-Entrenador de Python con modos de tecleo, aprendizaje guiado y constructor de codigo.
+**Professional Touch Typing Tutor for Lubuntu**  
+Inspired by TypingMaster 11 · Built with PySide6 · Cyberpunk Neon UI
 
-## Instalacion
+Aegis Keymaster is a modern, adaptive touch-typing trainer designed for Linux (Lubuntu 26.04+).  
+It combines structured lessons, intelligent review of weak keys, real-time statistics, and a premium Cyberpunk visual experience with neon glow, pulse effects, and fluid animations.
+
+## Core Features
+
+- **Adaptive Lessons** — Start from the home row and progressively unlock the full keyboard. Lessons adapt to your speed and accuracy.
+- **Weak Key Detection** — Automatically identifies difficult keys and generates targeted drills.
+- **Typing Tests** — Measure WPM, accuracy, and consistency. Detailed post-test reports.
+- **Virtual Keyboard** — Real-time finger guidance and key highlighting.
+- **Progress Tracking** — Graphs, statistics, and session history.
+- **Light / Dark / Neon modes** — Full theme support with high-quality neon glow and pulse animations.
+- **Fully Responsive** — Adapts cleanly to any screen size and resolution.
+- **Linux-first** — Optimized for Lubuntu / Ubuntu desktop environments.
+
+## Visual Style
+
+Cyberpunk aesthetic with:
+- Deep space backgrounds
+- Electric cyan & magenta neon accents
+- Soft pulse animations on interactive elements
+- Glow effects on active keys and focus states
+- Premium, fluid transitions
+
+## Requirements
+
+- Python 3.10+
+- Lubuntu 26.04 (or any modern Linux with Qt support)
+- PySide6
 
 ```bash
 pip install -r requirements.txt
-python keymaster.py
 ```
 
-## IA local (Ollama) — opcional
+## Run
 
-1. Instala [Ollama](https://ollama.com)
-2. `ollama pull llama3.2` (u otro modelo)
-3. Activa **IA local** en la barra superior
+```bash
+python -m src.main
+# or
+python src/main.py
+```
 
-### Controles de IA
+## Project Structure
 
-- **Selector de modelo**: modelos instalados en Ollama
-- **Ratio IA (0–100%)**: probabilidad de ejercicio generado vs banco fijo
-- **Adaptativo**: prioriza conceptos con mas fallos del perfil
+```
+Aegis_Keymaster/
+├── src/
+│   ├── main.py                 # Entry point
+│   ├── app.py                  # Application class
+│   ├── ui/
+│   │   ├── main_window.py
+│   │   ├── typing_area.py
+│   │   ├── virtual_keyboard.py
+│   │   ├── themes.py
+│   │   └── widgets/
+│   ├── core/
+│   │   ├── engine.py           # Typing engine (WPM, accuracy, errors)
+│   │   ├── lessons.py
+│   │   └── stats.py
+│   └── utils/
+├── styles/                     # QSS / theme resources
+├── data/                       # Lessons, user profiles
+├── assets/
+├── resources/
+├── STATE.md
+└── requirements.txt
+```
 
-Con adaptativo, el perfil guarda `concept_stats` (intentos, errores, exitos) y alimenta tanto el banco fijo (peso x3) como los prompts de Ollama.
+## Development Status
 
-Sin Ollama la app funciona con el banco fijo; el modo adaptativo sigue reforzando conceptos debiles offline.
+See `STATE.md` for current progress and next steps.
+
+---
+
+*Aegis Keymaster — Type with precision. Glow with style.*
