@@ -1,0 +1,196 @@
+"""
+Weak-key tracking and adaptive review drill generation.
+Collects per-key error statistics and produces short targeted exercises.
+"""
+
+from __future__ import annotations
+
+import random
+from collections import defaultdict
+from dataclasses import dataclass, field
+from typing import Dict, List, Tuple, Optional
+
+
+@dataclass
+class KeyStats:
+    attempts: int = 0
+    errors: int = 0
+
+    @property
+    def error_rate(self) -> float:
+        if self.attempts == 0:
+            return 0.0
+        return self.errors / self.attempts
+
+    @property
+    def accuracy(self) -> float:
+        return 100.0 * (1.0 - self.error_rate)
+
+
+class WeakKeyTracker:
+    """
+    Tracks which keys the user misses most often.
+    Call `record_attempt(expected, typed)` for every character comparison,
+    or `record_session(target, typed)` after a full exercise.
+    """
+
+    def __init__(self):
+        self._stats: Dict[str, KeyStats] = defaultdict(KeyStats)
+        self._total_errors = 0
+        self._total_attempts = 0
+
+    # ── Recording ────────────────────────────
+
+    def record_attempt(self, expected: str, got: str):
+        """Record a single character attempt."""
+        if not expected or expected == " ":
+            # Still count spaces lightly, but focus on letters/symbols
+            key = expected if expected else " "
+        else:
+            key = expected.lower() if len(expected) == 1 else expected
+
+        st = self._stats[key]
+        st.attempts += 1
+        self._total_attempts += 1
+        if got != expected:
+            st.errors += 1
+            self._total_errors += 1
+
+    def record_session(self, target: str, typed: str):
+        """
+        Record a full exercise by aligning target and typed character-by-character.
+        """
+        n = min(len(target), len(typed))
+        for i in range(n):
+            self.record_attempt(target[i], typed[i])
+        # Characters not yet typed are ignored (not errors)
+
+    def reset(self):
+        self._stats.clear()
+        self._total_errors = 0
+        self._total_attempts = 0
+
+    # ── Queries ──────────────────────────────
+
+    def weak_keys(self, top_n: int = 8, min_attempts: int = 3) -> List[Tuple[str, float, int]]:
+        """
+        Return the weakest keys as (key, error_rate, attempts),
+        sorted by error_rate descending. Only keys with enough data.
+        """
+        candidates = []
+        for key, st in self._stats.items():
+            if st.attempts >= min_attempts and st.errors > 0:
+                candidates.append((key, st.error_rate, st.attempts))
+        candidates.sort(key=lambda x: (-x[1], -x[2]))
+        return candidates[:top_n]
+
+    def key_stats(self, key: str) -> KeyStats:
+        return self._stats.get(key.lower(), KeyStats())
+
+    def all_stats(self) -> Dict[str, KeyStats]:
+        return dict(self._stats)
+
+    def summary(self) -> str:
+        weak = self.weak_keys(top_n=5, min_attempts=2)
+        if not weak:
+            return "No weak keys detected yet"
+        parts = [f"{k!r} ({rate*100:.0f}%)" for k, rate, _ in weak]
+        return "Weak: " + ", ".join(parts)
+
+    def has_data(self) -> bool:
+        return any(st.errors > 0 for st in self._stats.values())
+
+    # ── Drill generation ─────────────────────
+
+    def generate_drill(self, length: int = 70, top_n: int = 6) -> str:
+        """
+        Build a short exercise that heavily features the user's weakest keys.
+        Falls back to home-row practice if there is not enough data.
+        """
+        weak = self.weak_keys(top_n=top_n, min_attempts=2)
+        if not weak:
+            # Fallback: classic home-row drill
+            pool = list("asdfjkl;")
+            return self._make_groups(pool, length)
+
+        # Weight keys by error rate (higher error → more appearances)
+        keys = []
+        weights = []
+        for key, rate, attempts in weak:
+            if key == " ":
+                continue
+            keys.append(key)
+            weights.append(max(0.15, rate) * (1 + attempts * 0.05))
+
+        if not keys:
+            keys = list("asdfjkl;")
+            weights = [1.0] * len(keys)
+
+        # Mix weak keys with a few neutral neighbors for realism
+        neighbors = self._neighbors(keys)
+        for n in neighbors:
+            if n not in keys:
+                keys.append(n)
+                weights.append(0.2)
+
+        return self._make_weighted_text(keys, weights, length)
+
+    def _neighbors(self, keys: List[str]) -> List[str]:
+        """Simple keyboard-neighbor expansion for more natural drills."""
+        rows = [
+            list("`1234567890-="),
+            list("qwertyuiop[]\\"),
+            list("asdfghjkl;'"),
+            list("zxcvbnm,./"),
+        ]
+        found = set()
+        for k in keys:
+            for row in rows:
+                if k in row:
+                    idx = row.index(k)
+                    for j in (idx - 1, idx + 1):
+                        if 0 <= j < len(row):
+                            found.add(row[j])
+        return list(found)
+
+    def _make_groups(self, pool: List[str], length: int) -> str:
+        rng = random.Random()
+        chunks = []
+        total = 0
+        while total < length:
+            n = rng.randint(3, 5)
+            chunk = "".join(rng.choice(pool) for _ in range(n))
+            chunks.append(chunk)
+            total += len(chunk) + 1
+        return " ".join(chunks)[: length + 15].strip()
+
+    def _make_weighted_text(self, keys: List[str], weights: List[float], length: int) -> str:
+        rng = random.Random()
+        # Normalize weights
+        total_w = sum(weights) or 1.0
+        probs = [w / total_w for w in weights]
+
+        def pick():
+            r = rng.random()
+            acc = 0.0
+            for k, p in zip(keys, probs):
+                acc += p
+                if r <= acc:
+                    return k
+            return keys[-1]
+
+        chunks = []
+        total = 0
+        while total < length:
+            n = rng.randint(3, 5)
+            chunk = "".join(pick() for _ in range(n))
+            chunks.append(chunk)
+            total += len(chunk) + 1
+        return " ".join(chunks)[: length + 15].strip()
+
+
+# Convenience: also track simple bigrams later if needed
+@dataclass
+class BigramStats:
+    attempts: int = 0
+    errors: int = 0
